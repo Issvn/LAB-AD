@@ -16,7 +16,7 @@ function Set-IPAddress {
 
     # Check IP and set static
     if ($IPByte[0] -eq "169" -And $IPByte[1] -eq "254") {
-        Write-Host("`n [ ERREUR ] - $IPaddress est une adresse Link-Local, paramètre réseau de la VM à vérifier. `n`n")
+        Write-Host("`n [ ERROR ] - $IPaddress is a Link-Local address, Please check the VM network settings. `n`n")
         exit
     } else {
         $StaticIP = ($IPByte[0]+"."+$IPByte[1]+"."+$IPByte[2]+".250")
@@ -26,47 +26,47 @@ function Set-IPAddress {
 }
 
 function Get-QoL{
-    write-host("`n  [++] QoL - Thème sombre")
+    write-host("`n  [++] QoL - Dark Mode")
     reg add "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v "AppsUseLightTheme" /t REG_DWORD /d "0" /f > $null
     reg add "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v "SystemUsesLightTheme" /t REG_DWORD /d "0" /f > $null
 
-    write-host("`n  [++] QoL - Verrouillage session, mise en veille désactivée")
-    reg add  "HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Control Panel\Desktop" /v "ScreenSaveTimeOut" /t REG_DWORD /d "0" /f > $null 
-    reg add  "HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Control Panel\Desktop" /v "ScreenSaveActive" /t REG_DWORD /d "0" /f > $null
-    reg add  "HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Control Panel\Desktop" /v "ScreenSaverIsSecure" /t REG_DWORD /d "0" /f > $null
+    write-host("`n  [++] QoL - Session Locking and deactivate standy")
+    reg add "HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Control Panel\Desktop" /v "ScreenSaveTimeOut" /t REG_DWORD /d "0" /f > $null 
+    reg add "HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Control Panel\Desktop" /v "ScreenSaveActive" /t REG_DWORD /d "0" /f > $null
+    reg add "HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Control Panel\Desktop" /v "ScreenSaverIsSecure" /t REG_DWORD /d "0" /f > $null
 
     Get-ScheduledTask -TaskName ServerManager | Disable-ScheduledTask | Out-Null
 }
 
 function Add-User{
-    param([Parameter()][string]$prenom,[Parameter()][string]$nom,[Parameter()][string]$sam,[Parameter()][string]$ou,[Parameter()][string]$mdp)
+    param([Parameter()][string]$forename,[Parameter()][string]$name,[Parameter()][string]$sam,[Parameter()][string]$ou,[Parameter()][string]$passwd)
     
-    $mdp = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($mdp))
-    New-ADUser -Name "$prenom $nom" -GivenName "$prenom" -Surname "$nom" -SamAccountName "$sam" -UserPrincipalName "$sam@nevasec.local" -Path "OU=$ou,DC=nevasec,DC=local" -AccountPassword (ConvertTo-SecureString $mdp -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Enable-ADAccount  | Out-Null
+    $mdp = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($passwd))
+    New-ADUser -Name "$forename $name" -GivenName "$forename" -Surname "$name" -SamAccountName "$sam" -UserPrincipalName "$sam@$DOMAINDNS" -Path "OU=$ou,$LDAPROOT" -AccountPassword (ConvertTo-SecureString $passwd -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Enable-ADAccount  | Out-Null
 }
 
 function Add-ADDS {
-    Write-host("`n  [++] Installation de Active Directory Domain Services (ADDS)")
+    Write-host("`n  [++] Install Active Directory Domain Services (ADDS)")
     Install-windowsfeature -name AD-Domain-Services -IncludeManagementTools -WarningAction SilentlyContinue | Out-Null
 
-    Write-host("`n  [++] Importing Module ActiveDirectory")
+    Write-host("`n  [++] Importing Module Active Directory")
     Import-Module ActiveDirectory -WarningAction SilentlyContinue | Out-Null
     
-    Write-host("`n  [++] Installation du domaine $DOMAINDNS")
+    Write-host("`n  [++] Installing domain $DOMAINDNS")
     Install-ADDSForest -SkipPreChecks -CreateDnsDelegation:$false -DatabasePath "C:\Windows\NTDS" -DomainMode "WinThreshold" -DomainName $DOMAINDNS -DomainNetbiosName $DOMAIN -ForestMode "WinThreshold" -InstallDns:$true -LogPath "C:\Windows\NTDS" -NoRebootOnCompletion:$false -SysvolPath "C:\Windows\SYSVOL" -Force:$true -SafeModeAdministratorPassword (Convertto-SecureString -AsPlainText "R00tR00t" -Force) -WarningAction SilentlyContinue | Out-Null
 }
 
 function Add-ADCS {
-    Write-Host("`n  [++] Installation de AD Certificate Services")
+    Write-Host("`n  [++] Install AD Certificate Services")
     Add-WindowsFeature -Name AD-Certificate -IncludeManagementTools -WarningAction SilentlyContinue | Out-Null
   
-    write-host("`n  [++] Installation de ADCS Certificate Authority")
+    write-host("`n  [++] Install ADCS Certificate Authority")
     Add-WindowsFeature -Name Adcs-Cert-Authority -IncludeManagementTools -WarningAction SilentlyContinue | Out-Null
 
-    write-host("`n  [++] Configuration de Active Directory Certificate Authority")
+    write-host("`n  [++] Configuring Active Directory Certificate Authority")
     Install-AdcsCertificationAuthority -CAType EnterpriseRootCa -CryptoProviderName "RSA#Microsoft Software Key Storage Provider" -KeyLength 2048 -HashAlgorithmName SHA1 -ValidityPeriod Years -ValidityPeriodUnits 99 -WarningAction SilentlyContinue -Force | Out-Null
 
-    write-host("`n  [++] Installation de Remote System Administration Tools (RSAT)")
+    write-host("`n  [++] Install Remote System Administration Tools (RSAT)")
     Add-WindowsCapability -Online -Name Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0 -WarningAction SilentlyContinue | Out-Null
     Add-WindowsFeature RSAT-ADCS,RSAT-ADCS-mgmt -WarningAction SilentlyContinue | Out-Null
     Add-WindowsFeature -Name "RSAT-AD-PowerShell" -IncludeAllSubFeature
@@ -89,7 +89,9 @@ function Add-Users-to-Domain {
     New-ADOrganizationalUnit -Name "IT" -Path $LDAPROOT
     New-ADOrganizationalUnit -Name "SVC" -Path $LDAPROOT
 
-    foreach ($g in Get-ADGroup -Filter *){ Get-ADGroup $g | Move-ADObject -targetpath "OU=Groupes,DC=nevasec,DC=local" -ErrorAction SilentlyContinue | Out-Null }
+    foreach ($g in Get-ADGroup -Filter *){ 
+        Get-ADGroup $g | Move-ADObject -targetpath "OU=Groupes,DC=nevasec,DC=local" -ErrorAction SilentlyContinue | Out-Null
+    }
 
     # Management
     Add-User -prenom "Richard" -nom "Cuvillier" -sam "rcuvillier" -ou "management" -mdp "TgBlAHYAYQBzAGUAYwAxADIAMwA="
@@ -130,6 +132,7 @@ function Add-Users-to-Domain {
     Add-User -prenom "Admin" -nom "Sylvain Cormier" -sam "adm-scormier" -ou "it" -mdp "egBMADAAVAAxAE4AIQA0AEEAQQBZAHIA"
     Add-User -prenom "Maxime" -nom "Laurens" -sam "mlaurens" -ou "it" -mdp "IQAwAE4AZQB2AGEAZwByAHUAcAAwACEA"
     Add-User -prenom "Admin" -nom "Maxime Laurens" -sam "adm-mlaurens" -ou "it" -mdp "UwB1AHAAZQByAC0AUABhAHMAcwB3AG8AcgBkAC0ANAAtAEEAZABtAGkAbgA="
+    
     Add-ADGroupMember -Identity "IT" -Members scormier,mlaurens
     Add-ADGroupMember -Identity "Admins du domaine" -Members adm-scormier,adm-mlaurens
 
@@ -157,7 +160,7 @@ function Add-Users-to-Domain {
     Copy-Item -Path "_tools\LdapAdminPortable.zip" Destination "C:\Share\LdapAdminPortable.zip"
 
     # Creating and configuring Custom GPO
-    Write-Host("`n  [++] Creation of Custom GPO")
+    Write-Host("`n  [++] Creating Custom GPO")
     New-GPO -Name "CustomGPO"
 
     # Setting registry values using the Custom GPO
@@ -177,32 +180,32 @@ function Add-Users-to-Domain {
     New-Item "\\$PCNAME\sysvol\$DOMAINDNS\Policies\Groups.xml" -ItemType File -Value ([System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String("PAA/AHgAbQBsACAAdgBlAHIAcwBpAG8AbgA9ACIAMQAuADAAIgAgAGUAbgBjAG8AZABpAG4AZwA9ACIAdQB0AGYALQA4ACIAIAA/AD4ADQAKADwARwByAG8AdQBwAHMAIABjAGwAcwBpAGQAPQAiAHsAZQAxADgAYgBkADMAMABiAC0AYwA3AGIAZAAtAGMAOQA5AGYALQA3ADgAYgBiAC0AMgAwADYAYgA0ADMANABkADAAYgAwADgAfQAiAD4ADQAKAAkAPABVAHMAZQByACAAYwBsAHMAaQBkAD0AIgB7AEQARgA1AEYAMQA4ADUANQAtADUAMQBFADUALQA0AGQAMgA0AC0AOABCADEAQQAtAEQAOQBCAEQARQA5ADgAQgBBADEARAAxAH0AIgAgAG4AYQBtAGUAPQAiAEEAZABtAGkAbgBpAHMAdAByAGEAdABvAHIAIAAoAGIAdQBpAGwAdAAtAGkAbgApACIAIABpAG0AYQBnAGUAPQAiADIAIgAgAGMAaABhAG4AZwBlAGQAPQAiADIAMAAxADUALQAwADIALQAxADgAIAAwADEAOgA1ADMAOgAwADEAIgAgAHUAaQBkAD0AIgB7AEQANQBGAEUANwAzADUAMgAtADgAMQBFADEALQA0ADIAQQAyAC0AQgA3AEQAQQAtADEAMQA4ADQAMAAyAEIARQA0AEMAMwAzAH0AIgA+AA0ACgAJAAkAPABQAHIAbwBwAGUAcgB0AGkAZQBzACAAYQBjAHQAaQBvAG4APQAiAFUAIgAgAG4AZQB3AE4AYQBtAGUAPQAiACIAIABmAHUAbABsAE4AYQBtAGUAPQAiACIAIABkAGUAcwBjAHIAaQBwAHQAaQBvAG4APQAiACIAIABjAHAAYQBzAHMAdwBvAHIAZAA9ACIAUgBJADEAMwAzAEIAMgBXAGwAMgBDAGkASQAwAEMAYQB1ADEARAB0AHIAdABUAGUAMwB3AGQARgB3AHoAQwBpAFcAQgA1AFAAUwBBAHgAWABNAEQAcwB0AGMAaABKAHQAMwBiAEwAMABVAGkAZQAwAEIAYQBaAC8ANwByAGQAUQBqAHUAZwBUAG8AbgBGADMAWgBXAEEASwBhADEAaQBSAHYAZAA0AEoARwBRACIAIABjAGgAYQBuAGcAZQBMAG8AZwBvAG4APQAiADAAIgAgAG4AbwBDAGgAYQBuAGcAZQA9ACIAMAAiACAAbgBlAHYAZQByAEUAeABwAGkAcgBlAHMAPQAiADAAIgAgAGEAYwBjAHQARABpAHMAYQBiAGwAZQBkAD0AIgAwACIAIABzAHUAYgBBAHUAdABoAG8AbgB0AHkAPQAiAFIASQBEAF8AQQBEAE0ASQBOACIAIAB1AHMAZQByAE4AYQBtAGUAPQAiAGkAbgBzAHQAYQBsAGwAcABjACIALwA+AA0ACgAJADwALwBVAHMAZQByAD4ADQAKADwALwBHAHIAbwB1AHAAcwA+AA==")))
 }
 
-
 function Invoke-LabSetup{
     if ($env:COMPUTERNAME -ne $PCNAME ) {
-        Write-Host("Premiere execution detectee. Changement des parametres reseau...")
+        Write-Host("`n  [++] First run detected. Modifying network config...")
         Set-IPAddress
-        Write-Host("Suppression de l'antivirus...")
+        Write-Host("`n  [++] Removing MS Defender...")
         Nuke-Defender
-        Write-Host("Changement QoL")
+        Write-Host("`n  [++] Modifying QoL")
         Get-QoL
-        Write-Host("Le serveur va etre renomme puis redemarrer")
+        Write-Host("`n  [--] The server will be renamed and restarted")
         Start-Sleep -Seconds 5
         Rename-Computer -NewName $PCNAME -Restart
-    }elseif ($env:USERDNSDOMAIN -ne $DOMAIN) {
-        Write-Host("Deuxieme execution detectee. Installation des roles...")
+
+    } elseif ($env:USERDNSDOMAIN -ne $DOMAIN) {
+        Write-Host("`n  [++] Second run detected, Installing roles...")
         Add-ADDS
-    }elseif ($env:COMPUTERNAME -eq $PCNAME -and $env:USERDNSDOMAIN -eq $DOMAIN) {
+
+    } elseif ($env:COMPUTERNAME -eq $PCNAME -and $env:USERDNSDOMAIN -eq $DOMAIN) {
         $exists = $false
         try {
             $user = Get-ADUser -Identity "svc-sql" -ErrorAction Stop
             $exists = $true
-            Write-Host("Tout est deja installe !")
+            Write-Host("Everything is installed")
         } catch {
             $exists = $false
         } if (-not $exists) {
-            # Exécution normale : contenu pas encore déployé
-            Write-Host("Troisieme execution detectee. Ajout du contenu...")
+            Write-Host("`n  [++] Third run detected. Adding AD CS and Users...")
             Add-ADCS
             Add-Users-to-Domain
         }

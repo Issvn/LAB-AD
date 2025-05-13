@@ -9,7 +9,7 @@ param($PCNAME)
 
 function Invoke-LabSetup { 
     if ($env:COMPUTERNAME -ne $PCNAME) { 
-        write-host ("`n Changement des paramètres IP et du nom et reboot...")
+        Write-Host("`n  [++] First run detected. Modifying network config...")
 
         Nuke-Defender
         $NetAdapter=Get-CimInstance -Class Win32_NetworkAdapter -Property NetConnectionID,NetConnectionStatus | Where-Object { $_.NetConnectionStatus -eq 2 } | Select-Object -Property NetConnectionID -ExpandProperty NetConnectionID
@@ -21,8 +21,9 @@ function Invoke-LabSetup {
         netsh interface ipv6 set dnsservers "$NetAdapter" dhcp
 
         Rename-Computer -NewName $PCNAME -Restart
+
     } elseif ($env:COMPUTERNAME -eq $PCNAME -and $env:USERDNSDOMAIN -ne $DOMAINDNS) {
-        write-host ("`n Ajout au domaine et reboot...")
+        write-host ("`n  [++] Joining domain and reboot...")
         
         Nuke-Defender
         $password = "R00tR00t" | ConvertTo-SecureString -asPlainText -Force
@@ -34,9 +35,10 @@ function Invoke-LabSetup {
             Start-Sleep 5
             restart-computer
         } else {
-            Write-Error "Erreur Impossible de Ping l'AD Vérfier la connectivité ou le DNS... Arrêt dans 5sec !"
+            Write-Error ("`n [ERROR] Can't reach the Domain Controller, Please check network connectivity or DNS Settings... Shutdown in 5 seconds")
             Start-Sleep 5
         }
+        
     } else {
         $group = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String("VQB0AGkAbABpAHMAYQB0AGUAdQByAHMAIABkAHUAIABCAHUAcgBlAGEAdQAgAOAAIABkAGkAcwB0AGEAbgBjAGUA"))
         Add-LocalGroupMember -Group $group -Member '$($DOMAIN)\Admins du domaine'

@@ -9,7 +9,7 @@ param($PCNAME)
 
 function Invoke-LabSetup { 
     if ($env:COMPUTERNAME -ne $PCNAME) { 
-        write-host ("`n Changement des paramètres IP et du nom et reboot...")
+        Write-Host("`n  [++] First run detected. Modifying network config...")
 
         # Désactivation Windows Update
         Stop-Service wuauserv -Force -ErrorAction SilentlyContinue
@@ -32,8 +32,9 @@ function Invoke-LabSetup {
         netsh interface ipv6 set dnsservers "$NetAdapter" dhcp
 
         Rename-Computer -NewName $PCNAME -Restart
+        
     } elseif ($env:COMPUTERNAME -eq $PCNAME -and $env:USERDNSDOMAIN -ne $DOMAINDNS) {
-        write-host ("`n Ajout au domaine et reboot...")
+        write-host ("`n  [++] Joining domain and reboot...")
 
         Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled False | Out-Null
         
@@ -46,11 +47,12 @@ function Invoke-LabSetup {
             Start-Sleep 5
             restart-computer
         } else {
-            Write-Error "Erreur Impossible de Ping l'AD Vérfier la connectivité ou le DNS... Arrêt dans 5sec !"
+            Write-Error ("`n [ERROR] Can't reach the Domain Controller, Please check network connectivity or DNS Settings... Shutdown in 5 seconds")
             Start-Sleep 5
         }
+
     } else { # Create credentials file
-        write-host ("`n Configuration finale...")
+        Write-Host ("`n  [++] Final configuration...")
         
         $username = '$DOMAIN\mlaurens'
         $password = ConvertTo-SecureString '!0Nevagrup0!' -AsPlainText -Force
@@ -68,6 +70,7 @@ function Invoke-LabSetup {
         if (-not (Test-Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run")) {
             New-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Force
         }
+
         Set-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "LLMNR_Trigger_Script" -Value "powershell.exe -ExecutionPolicy Bypass -NoProfile -File `"$scriptPath`"" 
         New-LocalUser -Name srvadmin -Password (ConvertTo-SecureString "Super-Password-4-Admin" -AsPlainText -Force)
         Add-LocalGroupMember -Group $group -Member '$($DOMAIN)\Admins du domaine'
