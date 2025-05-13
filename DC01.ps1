@@ -1,7 +1,10 @@
 #Requires -RunAsAdministrator
 
-function Set-IPAddress {
+$DOMAIN=nevasec.local
+$DOMAINDNS=nevasec
+$LDAP="DC=nevasec,DC=local"
 
+function Set-IPAddress {
     # Get info: adapter, IP, gateway
     $NetAdapter=Get-CimInstance -Class Win32_NetworkAdapter -Property NetConnectionID,NetConnectionStatus | Where-Object { $_.NetConnectionStatus -eq 2 } | Select-Object -Property NetConnectionID -ExpandProperty NetConnectionID
     $IPAddress=Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $NetAdapter | Select-Object -ExpandProperty IPAddress
@@ -12,16 +15,14 @@ function Set-IPAddress {
     if ($IPByte[0] -eq "169" -And $IPByte[1] -eq "254") {
         Write-Host("`n [ ERREUR ] - $IPaddress est une adresse Link-Local, paramètre réseau de la VM à vérifier. `n`n")
         exit
-    }else{
+    } else {
         $StaticIP = ($IPByte[0]+"."+$IPByte[1]+"."+$IPByte[2]+".250")
         netsh interface ipv4 set address name="$NetAdapter" static $StaticIP 255.255.255.0 $Gateway
         Set-DnsClientServerAddress -InterfaceAlias $NetAdapter -ServerAddresses ("127.0.0.1","1.1.1.1")
-    
     }
-  }
+}
 
 function Nuke-Defender{
-
     Set-MpPreference -DisableRealtimeMonitoring $true | Out-Null
     Set-MpPreference -DisableRemovableDriveScanning $true | Out-Null
     Set-MpPreference -DisableArchiveScanning  $true | Out-Null
@@ -90,8 +91,6 @@ function Nuke-Defender{
                 # Erreurs ignorées silencieusement
             }
         }
-
-
 }
 
 function Get-QoL{
@@ -108,14 +107,8 @@ function Get-QoL{
 }
 
 function Add-User{
-    param(
-        [Parameter()][string]$prenom,
-        [Parameter()][string]$nom,
-        [Parameter()][string]$sam,
-        [Parameter()][string]$ou,
-        [Parameter()][string]$mdp
-    )
-
+    param([Parameter()][string]$prenom,[Parameter()][string]$nom,[Parameter()][string]$sam,[Parameter()][string]$ou,[Parameter()][string]$mdp)
+    
     $mdp = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($mdp))
     New-ADUser -Name "$prenom $nom" -GivenName "$prenom" -Surname "$nom" -SamAccountName "$sam" -UserPrincipalName "$sam@nevasec.local" -Path "OU=$ou,DC=nevasec,DC=local" -AccountPassword (ConvertTo-SecureString $mdp -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Enable-ADAccount  | Out-Null
 }
@@ -129,11 +122,9 @@ function Build-Server{
     
     Write-host("`n  [++] Installation du domaine nevasec.local")
     Install-ADDSForest -SkipPreChecks -CreateDnsDelegation:$false -DatabasePath "C:\Windows\NTDS" -DomainMode "WinThreshold" -DomainName "NEVASEC.LOCAL" -DomainNetbiosName "NEVASEC" -ForestMode "WinThreshold" -InstallDns:$true -LogPath "C:\Windows\NTDS" -NoRebootOnCompletion:$false -SysvolPath "C:\Windows\SYSVOL" -Force:$true -SafeModeAdministratorPassword (Convertto-SecureString -AsPlainText "R00tR00t" -Force) -WarningAction SilentlyContinue | Out-Null
-
 }
 
 function Add-ServerContent{
-
     Write-Host("`n  [++] Installation de AD Certificate Services")
     Add-WindowsFeature -Name AD-Certificate -IncludeManagementTools -WarningAction SilentlyContinue | Out-Null
   
@@ -246,7 +237,7 @@ function Add-ServerContent{
     Set-GPRegistryValue -Name "CustomGPO" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "NoAutoUpdate" -Value 1 -Type Dword | Out-Null  # Disables automatic Windows updates
     Set-GPRegistryValue -Name "CustomGPO" -Key "HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters\" -ValueName "DisabledComponents" -Value 0x20 -Type Dword  # Prefer IPv4 over IPv6
 
-    New-GPLink -Name "CustomGPO" -Target "DC=NEVASEC,DC=local" -LinkEnabled Yes -Enforced Yes
+    New-GPLink -Name "CustomGPO" -Target $LDAP -LinkEnabled Yes -Enforced Yes
     
     # GPP password
     New-Item "\\DC01\sysvol\nevasec.local\Policies\Groups.xml" -ItemType File -Value ([System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String("PAA/AHgAbQBsACAAdgBlAHIAcwBpAG8AbgA9ACIAMQAuADAAIgAgAGUAbgBjAG8AZABpAG4AZwA9ACIAdQB0AGYALQA4ACIAIAA/AD4ADQAKADwARwByAG8AdQBwAHMAIABjAGwAcwBpAGQAPQAiAHsAZQAxADgAYgBkADMAMABiAC0AYwA3AGIAZAAtAGMAOQA5AGYALQA3ADgAYgBiAC0AMgAwADYAYgA0ADMANABkADAAYgAwADgAfQAiAD4ADQAKAAkAPABVAHMAZQByACAAYwBsAHMAaQBkAD0AIgB7AEQARgA1AEYAMQA4ADUANQAtADUAMQBFADUALQA0AGQAMgA0AC0AOABCADEAQQAtAEQAOQBCAEQARQA5ADgAQgBBADEARAAxAH0AIgAgAG4AYQBtAGUAPQAiAEEAZABtAGkAbgBpAHMAdAByAGEAdABvAHIAIAAoAGIAdQBpAGwAdAAtAGkAbgApACIAIABpAG0AYQBnAGUAPQAiADIAIgAgAGMAaABhAG4AZwBlAGQAPQAiADIAMAAxADUALQAwADIALQAxADgAIAAwADEAOgA1ADMAOgAwADEAIgAgAHUAaQBkAD0AIgB7AEQANQBGAEUANwAzADUAMgAtADgAMQBFADEALQA0ADIAQQAyAC0AQgA3AEQAQQAtADEAMQA4ADQAMAAyAEIARQA0AEMAMwAzAH0AIgA+AA0ACgAJAAkAPABQAHIAbwBwAGUAcgB0AGkAZQBzACAAYQBjAHQAaQBvAG4APQAiAFUAIgAgAG4AZQB3AE4AYQBtAGUAPQAiACIAIABmAHUAbABsAE4AYQBtAGUAPQAiACIAIABkAGUAcwBjAHIAaQBwAHQAaQBvAG4APQAiACIAIABjAHAAYQBzAHMAdwBvAHIAZAA9ACIAUgBJADEAMwAzAEIAMgBXAGwAMgBDAGkASQAwAEMAYQB1ADEARAB0AHIAdABUAGUAMwB3AGQARgB3AHoAQwBpAFcAQgA1AFAAUwBBAHgAWABNAEQAcwB0AGMAaABKAHQAMwBiAEwAMABVAGkAZQAwAEIAYQBaAC8ANwByAGQAUQBqAHUAZwBUAG8AbgBGADMAWgBXAEEASwBhADEAaQBSAHYAZAA0AEoARwBRACIAIABjAGgAYQBuAGcAZQBMAG8AZwBvAG4APQAiADAAIgAgAG4AbwBDAGgAYQBuAGcAZQA9ACIAMAAiACAAbgBlAHYAZQByAEUAeABwAGkAcgBlAHMAPQAiADAAIgAgAGEAYwBjAHQARABpAHMAYQBiAGwAZQBkAD0AIgAwACIAIABzAHUAYgBBAHUAdABoAG8AbgB0AHkAPQAiAFIASQBEAF8AQQBEAE0ASQBOACIAIAB1AHMAZQByAE4AYQBtAGUAPQAiAGkAbgBzAHQAYQBsAGwAcABjACIALwA+AA0ACgAJADwALwBVAHMAZQByAD4ADQAKADwALwBHAHIAbwB1AHAAcwA+AA==")))
@@ -264,10 +255,10 @@ function Invoke-LabSetup{
         Write-Host("Le serveur va etre renomme puis redemarrer")
         Start-Sleep -Seconds 5
         Rename-Computer -NewName "DC01" -Restart
-    }elseif($env:USERDNSDOMAIN -ne "nevasec.LOCAL"){
+    }elseif($env:USERDNSDOMAIN -ne $DOMAIN){
         Write-Host("Deuxieme execution detectee. Installation des roles...")
         Build-Server
-    }elseif ($env:COMPUTERNAME -eq "DC01" -and $env:USERDNSDOMAIN -eq "NEVASEC.LOCAL") {
+    }elseif ($env:COMPUTERNAME -eq "DC01" -and $env:USERDNSDOMAIN -eq $DOMAIN) {
         $exists = $false
         try {
             $user = Get-ADUser -Identity "svc-sql" -ErrorAction Stop
@@ -283,7 +274,3 @@ function Invoke-LabSetup{
         }
     }
 }
-
-
-
-

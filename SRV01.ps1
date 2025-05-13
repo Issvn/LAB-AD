@@ -1,9 +1,11 @@
 #Requires -RunAsAdministrator
 
-function Invoke-LabSetup { 
+$DOMAIN=nevasec.local
+$DOMAINDNS=nevasec
+$LDAP="DC=nevasec,DC=local"
 
+function Invoke-LabSetup { 
     if ($env:COMPUTERNAME -ne "SRV01") { 
-    
         write-host ("`n Changement des paramètres IP et du nom et reboot...")
 
         # Désactivation Windows Update
@@ -27,9 +29,7 @@ function Invoke-LabSetup {
         netsh interface ipv6 set dnsservers "$NetAdapter" dhcp
 
         Rename-Computer -NewName "SRV01" -Restart
-
-    }
-    elseif ($env:COMPUTERNAME -eq "SRV01" -and $env:USERDNSDOMAIN -ne "NEVASEC.LOCAL") {
+    } elseif ($env:COMPUTERNAME -eq "SRV01" -and $env:USERDNSDOMAIN -ne "NEVASEC.LOCAL") {
         write-host ("`n Ajout au domaine et reboot...")
 
         Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled False | Out-Null
@@ -47,8 +47,7 @@ function Invoke-LabSetup {
             Write-Error "Erreur Impossible de Ping l'AD Vérfier la connectivité ou le DNS... Arrêt dans 5sec !"
             Start-Sleep 5
         }
-    }
-    else { # Create credentials file
+    } else { # Create credentials file
         write-host ("`n Configuration finale...")
         
         $username = 'NEVASEC\mlaurens'
