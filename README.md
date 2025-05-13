@@ -17,7 +17,7 @@ Le lab est constitué de 4 machines.
 Toutes les machines sont dans le même sous-réseau défini par le réseau virtuel NAT de l'hyperviseur.
 Les machines Windows se trouvent dans le domaine `NEVASEC.LOCAL`
 
-![Schéma lab](adlab.png)
+![Schéma lab](_pictures/adlab.png)
 
 
 ### Création des VM
