@@ -9,7 +9,7 @@ param($PCNAME)
 
 function Invoke-LabSetup { 
     if ($env:COMPUTERNAME -ne $PCNAME) { 
-        Write-Host("`n  [++] First run detected. Modifying network config...")
+        Write-Host("`n [++] First run detected. Modifying network config...")
 
         # Désactivation Windows Update
         Stop-Service wuauserv -Force -ErrorAction SilentlyContinue
@@ -32,14 +32,14 @@ function Invoke-LabSetup {
         netsh interface ipv6 set dnsservers "$NetAdapter" dhcp
 
         Rename-Computer -NewName $PCNAME -Restart
-        
+
     } elseif ($env:COMPUTERNAME -eq $PCNAME -and $env:USERDNSDOMAIN -ne $DOMAINDNS) {
-        write-host ("`n  [++] Joining domain and reboot...")
+        write-host ("`n [++] Joining domain and reboot...")
 
         Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled False | Out-Null
         
         $password = "R00tR00t" | ConvertTo-SecureString -asPlainText -Force
-        $username = "$DOMAIN\Administrateur" 
+        $username = "$DOMAIN\Administrator" 
         $credential = New-Object System.Management.Automation.PSCredential($username,$password)
         #Verif ping du domaine avant lancement de la connection
         if (Test-Connection -ComputerName $DOMAINDNS -Count 5 -Quiet) { 
@@ -47,12 +47,12 @@ function Invoke-LabSetup {
             Start-Sleep 5
             restart-computer
         } else {
-            Write-Error ("`n [ERROR] Can't reach the Domain Controller, Please check network connectivity or DNS Settings... Shutdown in 5 seconds")
+            Write-Error ("`n [ ERROR ] Can't reach the Domain Controller, Please check network connectivity or DNS Settings... Shutdown in 5 seconds")
             Start-Sleep 5
         }
 
     } else { # Create credentials file
-        Write-Host ("`n  [++] Final configuration...")
+        Write-Host ("`n [++] Final configuration...")
         
         $username = '$DOMAIN\mlaurens'
         $password = ConvertTo-SecureString '!0Nevagrup0!' -AsPlainText -Force
@@ -73,8 +73,8 @@ function Invoke-LabSetup {
 
         Set-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "LLMNR_Trigger_Script" -Value "powershell.exe -ExecutionPolicy Bypass -NoProfile -File `"$scriptPath`"" 
         New-LocalUser -Name srvadmin -Password (ConvertTo-SecureString "Super-Password-4-Admin" -AsPlainText -Force)
-        Add-LocalGroupMember -Group $group -Member '$($DOMAIN)\Admins du domaine'
+        Add-LocalGroupMember -Group $group -Member '$($DOMAIN)\Domain Admins'
         Add-LocalGroupMember -Group $group -Member '$($DOMAINDNS)\IT'
-        Add-LocalGroupMember -Group 'Administrateurs' -Member '$($DOMAINDNS)\IT'
+        Add-LocalGroupMember -Group 'Administrators' -Member '$($DOMAINDNS)\IT'
     }     
 } 

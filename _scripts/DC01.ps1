@@ -26,11 +26,11 @@ function Set-IPAddress {
 }
 
 function Get-QoL{
-    write-host("`n  [++] QoL - Dark Mode")
+    write-host("`n [++] QoL - Dark Mode")
     reg add "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v "AppsUseLightTheme" /t REG_DWORD /d "0" /f > $null
     reg add "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v "SystemUsesLightTheme" /t REG_DWORD /d "0" /f > $null
 
-    write-host("`n  [++] QoL - Session Locking and deactivate standy")
+    write-host("`n [++] QoL - Session Locking and deactivate standy")
     reg add "HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Control Panel\Desktop" /v "ScreenSaveTimeOut" /t REG_DWORD /d "0" /f > $null 
     reg add "HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Control Panel\Desktop" /v "ScreenSaveActive" /t REG_DWORD /d "0" /f > $null
     reg add "HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Control Panel\Desktop" /v "ScreenSaverIsSecure" /t REG_DWORD /d "0" /f > $null
@@ -46,27 +46,27 @@ function Add-User{
 }
 
 function Add-ADDS {
-    Write-host("`n  [++] Install Active Directory Domain Services (ADDS)")
+    Write-host("`n [++] Install Active Directory Domain Services (ADDS)")
     Install-windowsfeature -name AD-Domain-Services -IncludeManagementTools -WarningAction SilentlyContinue | Out-Null
 
-    Write-host("`n  [++] Importing Module Active Directory")
+    Write-host("`n [++] Importing Module Active Directory")
     Import-Module ActiveDirectory -WarningAction SilentlyContinue | Out-Null
     
-    Write-host("`n  [++] Installing domain $DOMAINDNS")
+    Write-host("`n [++] Installing domain $DOMAINDNS")
     Install-ADDSForest -SkipPreChecks -CreateDnsDelegation:$false -DatabasePath "C:\Windows\NTDS" -DomainMode "WinThreshold" -DomainName $DOMAINDNS -DomainNetbiosName $DOMAIN -ForestMode "WinThreshold" -InstallDns:$true -LogPath "C:\Windows\NTDS" -NoRebootOnCompletion:$false -SysvolPath "C:\Windows\SYSVOL" -Force:$true -SafeModeAdministratorPassword (Convertto-SecureString -AsPlainText "R00tR00t" -Force) -WarningAction SilentlyContinue | Out-Null
 }
 
 function Add-ADCS {
-    Write-Host("`n  [++] Install AD Certificate Services")
+    Write-Host("`n [++] Install AD Certificate Services")
     Add-WindowsFeature -Name AD-Certificate -IncludeManagementTools -WarningAction SilentlyContinue | Out-Null
   
-    write-host("`n  [++] Install ADCS Certificate Authority")
+    write-host("`n [++] Install ADCS Certificate Authority")
     Add-WindowsFeature -Name Adcs-Cert-Authority -IncludeManagementTools -WarningAction SilentlyContinue | Out-Null
 
-    write-host("`n  [++] Configuring Active Directory Certificate Authority")
+    write-host("`n [++] Configuring Active Directory Certificate Authority")
     Install-AdcsCertificationAuthority -CAType EnterpriseRootCa -CryptoProviderName "RSA#Microsoft Software Key Storage Provider" -KeyLength 2048 -HashAlgorithmName SHA1 -ValidityPeriod Years -ValidityPeriodUnits 99 -WarningAction SilentlyContinue -Force | Out-Null
 
-    write-host("`n  [++] Install Remote System Administration Tools (RSAT)")
+    write-host("`n [++] Install Remote System Administration Tools (RSAT)")
     Add-WindowsCapability -Online -Name Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0 -WarningAction SilentlyContinue | Out-Null
     Add-WindowsFeature RSAT-ADCS,RSAT-ADCS-mgmt -WarningAction SilentlyContinue | Out-Null
     Add-WindowsFeature -Name "RSAT-AD-PowerShell" -IncludeAllSubFeature
@@ -74,79 +74,79 @@ function Add-ADCS {
 
 function Add-Users-to-Domain {
     # Groupes, OUs, utilisateurs
-    New-ADGroup -name "RH" -GroupScope Global
+    New-ADGroup -name "HR" -GroupScope Global
     New-ADGroup -name "Management" -GroupScope Global
     New-ADGroup -name "Consultants" -GroupScope Global
-    New-ADGroup -name "Vente" -GroupScope Global
+    New-ADGroup -name "Sales" -GroupScope Global
     New-ADGroup -name "IT" -GroupScope Global
     New-ADGroup -name "Backup" -GroupScope Global
 
-    New-ADOrganizationalUnit -Name "Groupes" -Path $LDAPROOT
-    New-ADOrganizationalUnit -Name "RH" -Path $LDAPROOT
+    New-ADOrganizationalUnit -Name "Groups" -Path $LDAPROOT
+    New-ADOrganizationalUnit -Name "HR" -Path $LDAPROOT
     New-ADOrganizationalUnit -Name "Management" -Path $LDAPROOT
     New-ADOrganizationalUnit -Name "Consultants" -Path $LDAPROOT
-    New-ADOrganizationalUnit -Name "Vente" -Path $LDAPROOT
+    New-ADOrganizationalUnit -Name "Sales" -Path $LDAPROOT
     New-ADOrganizationalUnit -Name "IT" -Path $LDAPROOT
     New-ADOrganizationalUnit -Name "SVC" -Path $LDAPROOT
 
     foreach ($g in Get-ADGroup -Filter *){ 
-        Get-ADGroup $g | Move-ADObject -targetpath "OU=Groupes,DC=nevasec,DC=local" -ErrorAction SilentlyContinue | Out-Null
+        Get-ADGroup $g | Move-ADObject -targetpath "OU=Groups,$LDAPROOT" -ErrorAction SilentlyContinue | Out-Null
     }
 
     # Management
-    Add-User -prenom "Richard" -nom "Cuvillier" -sam "rcuvillier" -ou "management" -mdp "TgBlAHYAYQBzAGUAYwAxADIAMwA="
-    Add-User -prenom "Basile" -nom "Delacroix" -sam "bdelacroix" -ou "management" -mdp "QQB6AGUAcgB0AHkAIwAxADUA"
-    Add-User -prenom "Martine" -nom "Baudet" -sam "mbaudet" -ou "management" -mdp "NgA3AEQAMQBmAEQAJQAlAGsAOAByADgA"
-    Add-User -prenom "Ludovic" -nom "Michaux" -sam "lmichaux" -ou "management" -mdp "TgBlAHYAYQBzAGUAYwAyADAAMgA0AA=="
+    Add-User -forename "Richard" -name "Cuvillier" -sam "rcuvillier" -ou "management" -passwd "TgBlAHYAYQBzAGUAYwAxADIAMwA="
+    Add-User -forename "Basile" -name "Delacroix" -sam "bdelacroix" -ou "management" -passwd "QQB6AGUAcgB0AHkAIwAxADUA"
+    Add-User -forename "Martine" -name "Baudet" -sam "mbaudet" -ou "management" -passwd "NgA3AEQAMQBmAEQAJQAlAGsAOAByADgA"
+    Add-User -forename "Ludovic" -name "Michaux" -sam "lmichaux" -ou "management" -passwd "TgBlAHYAYQBzAGUAYwAyADAAMgA0AA=="
     Add-ADGroupMember -Identity "Management" -Members rcuvillier,bdelacroix,mbaudet,lmichaux
 
-    # RH
-    Add-User -prenom "Louise" -nom "Chappuis" -sam "lchappuis" -ou "rh" -mdp "QQB6AGUAcgB0AHkAMQAyADMA"
-    Add-User -prenom "Sarah" -nom "Meyer" -sam "smeyer" -ou "rh" -mdp "TgBlAHYAYQBzAGUAYwAyADAAMgA0ACEA"
-    Add-User -prenom "Fabrice" -nom "Girault" -sam "fgirault" -ou "rh" -mdp "QQB6AGUAcgB0AHkAMgAwADIANAA="
-    Add-ADGroupMember -Identity "RH" -Members lchappuis,smeyer,fgirault
+    # HR
+    Add-User -forename "Louise" -name "Chappuis" -sam "lchappuis" -ou "hr" -passwd "QQB6AGUAcgB0AHkAMQAyADMA"
+    Add-User -forename "Sarah" -name "Meyer" -sam "smeyer" -ou "hr" -passwd "TgBlAHYAYQBzAGUAYwAyADAAMgA0ACEA"
+    Add-User -forename "Fabrice" -name "Girault" -sam "fgirault" -ou "hr" -passwd "QQB6AGUAcgB0AHkAMgAwADIANAA="
+    Add-ADGroupMember -Identity "HR" -Members lchappuis,smeyer,fgirault
 
     # Consultants
-    Add-User -prenom "Henri" -nom "Walter" -sam "hwalter" -ou "consultants" -mdp "VwBvAGQAZQBuAHMAZQBjACoAOQA4AA=="
-    Add-User -prenom "Bertrand" -nom "Dubois" -sam "bdubois" -ou "consultants" -mdp "SwBpAEwAbABFAHIANQAhAA=="
-    Add-User -prenom "Didier" -nom "Leroux" -sam "dleroux" -ou "consultants" -mdp "TgBlAHYAYQAqADkAOAAyAA=="
-    Add-User -prenom "Pascal" -nom "Mesny" -sam "pmesny" -ou "consultants" -mdp "dwBzADkAcABBACYAbABnADcATgAzADIA"
-    Add-User -prenom "Lydia" -nom "Beaumont" -sam "lbeaumont" -ou "consultants" -mdp "VAAwAGsAaQAwAEgAMAB0ADMAbAA="
-    Add-User -prenom "Alexia" -nom "Chabert" -sam "achabert" -ou "consultants" -mdp "UABPAGkAdQAqACYAOAA3AF4AJQA="
-    Add-User -prenom "Dylan" -nom "Brassard" -sam "dbrassard" -ou "consultants" -mdp "SwBzAGQAaQAzADQAMgA2AEMAJgB2AGUA"
-    Add-User -prenom "Lara" -nom "Fournier" -sam "lfournier" -ou "consultants" -mdp "OAA3AGMAYgB6AHUAdgBzAEYAMAAyACYA"
-    Add-User -prenom "Hugo" -nom "Dupuy" -sam "hdupuy" -ou "consultants" -mdp "WAAyAHcAXgB2AFkANAAzADIARQBvAFAA"
-    Add-User -prenom "Pierre" -nom "Sylvestre" -sam "psylvestre" -ou "consultants" -mdp "UABhAHMAcwB3AG8AcgBkADEAMgAzACEA"
+    Add-User -forename "Henri" -name "Walter" -sam "hwalter" -ou "consultants" -passwd "VwBvAGQAZQBuAHMAZQBjACoAOQA4AA=="
+    Add-User -forename "Bertrand" -name "Dubois" -sam "bdubois" -ou "consultants" -passwd "SwBpAEwAbABFAHIANQAhAA=="
+    Add-User -forename "Didier" -name "Leroux" -sam "dleroux" -ou "consultants" -passwd "TgBlAHYAYQAqADkAOAAyAA=="
+    Add-User -forename "Pascal" -name "Mesny" -sam "pmesny" -ou "consultants" -passwd "dwBzADkAcABBACYAbABnADcATgAzADIA"
+    Add-User -forename "Lydia" -name "Beaumont" -sam "lbeaumont" -ou "consultants" -passwd "VAAwAGsAaQAwAEgAMAB0ADMAbAA="
+    Add-User -forename "Alexia" -name "Chabert" -sam "achabert" -ou "consultants" -passwd "UABPAGkAdQAqACYAOAA3AF4AJQA="
+    Add-User -forename "Dylan" -name "Brassard" -sam "dbrassard" -ou "consultants" -passwd "SwBzAGQAaQAzADQAMgA2AEMAJgB2AGUA"
+    Add-User -forename "Lara" -name "Fournier" -sam "lfournier" -ou "consultants" -passwd "OAA3AGMAYgB6AHUAdgBzAEYAMAAyACYA"
+    Add-User -forename "Hugo" -name "Dupuy" -sam "hdupuy" -ou "consultants" -passwd "WAAyAHcAXgB2AFkANAAzADIARQBvAFAA"
+    Add-User -forename "Pierre" -name "Sylvestre" -sam "psylvestre" -ou "consultants" -passwd "UABhAHMAcwB3AG8AcgBkADEAMgAzACEA"
     Add-ADGroupMember -Identity "Consultants" -Members hwalter,bdubois,dleroux,pmesny,lbeaumont,achabert,dbrassard,lfournier,hdupuy,psylvestre
 
-    # Vente
-    Add-User -prenom "Olivier" -nom "Bossuet" -sam "obossuet" -ou "vente" -mdp "YgB4AEwAIQBAADIATQBlADEATQA4AHUA"
-    Add-User -prenom "Jessica" -nom "Plantier" -sam "jplantier" -ou "vente" -mdp "TgAzAHYANABnAHIAMAB1AHAA"
-    Add-User -prenom "Jade" -nom "Schneider" -sam "jschneider" -ou "vente" -mdp "VAB6AGoAMAA0ADQAWgBlAFYAJgBZAHUA"
-    Add-User -prenom "Laetitia" -nom "Portier" -sam "lportier" -ou "vente" -mdp "QQB6AGUAcgB0AHkAMgAwADIANAA="
-    Add-User -prenom "Cyrille" -nom "Toutain" -sam "ctoutain" -ou "vente" -mdp "cQBzAGcANQA2ADQAUwBGADIALQAkAA=="
-    Add-ADGroupMember -Identity "Vente" -Members obossuet,jplantier,jschneider,lportier,ctoutain
+    # sales
+    Add-User -forename "Olivier" -name "Bossuet" -sam "obossuet" -ou "sales" -passwd "YgB4AEwAIQBAADIATQBlADEATQA4AHUA"
+    Add-User -forename "Jessica" -name "Plantier" -sam "jplantier" -ou "sales" -passwd "TgAzAHYANABnAHIAMAB1AHAA"
+    Add-User -forename "Jade" -name "Schneider" -sam "jschneider" -ou "sales" -passwd "VAB6AGoAMAA0ADQAWgBlAFYAJgBZAHUA"
+    Add-User -forename "Laetitia" -name "Portier" -sam "lportier" -ou "sales" -passwd "QQB6AGUAcgB0AHkAMgAwADIANAA="
+    Add-User -forename "Cyrille" -name "Toutain" -sam "ctoutain" -ou "sales" -passwd "cQBzAGcANQA2ADQAUwBGADIALQAkAA=="
+    Add-ADGroupMember -Identity "Sales" -Members obossuet,jplantier,jschneider,lportier,ctoutain
 
     # Comptes IT et comptes IT admins du domaine
-    Add-User -prenom "Sylvain" -nom "Cormier" -sam "scormier" -ou "it" -mdp "egBMADAAVAAxAE4AIQA0AEEAQQBZAHIA"
-    Add-User -prenom "Admin" -nom "Sylvain Cormier" -sam "adm-scormier" -ou "it" -mdp "egBMADAAVAAxAE4AIQA0AEEAQQBZAHIA"
-    Add-User -prenom "Maxime" -nom "Laurens" -sam "mlaurens" -ou "it" -mdp "IQAwAE4AZQB2AGEAZwByAHUAcAAwACEA"
-    Add-User -prenom "Admin" -nom "Maxime Laurens" -sam "adm-mlaurens" -ou "it" -mdp "UwB1AHAAZQByAC0AUABhAHMAcwB3AG8AcgBkAC0ANAAtAEEAZABtAGkAbgA="
+    Add-User -forename "Sylvain" -name "Cormier" -sam "scormier" -ou "it" -passwd "egBMADAAVAAxAE4AIQA0AEEAQQBZAHIA"
+    Add-User -forename "Admin" -name "Sylvain Cormier" -sam "adm-scormier" -ou "it" -passwd "egBMADAAVAAxAE4AIQA0AEEAQQBZAHIA"
+    Add-User -forename "Maxime" -name "Laurens" -sam "mlaurens" -ou "it" -passwd "IQAwAE4AZQB2AGEAZwByAHUAcAAwACEA"
+    Add-User -forename "Admin" -name "Maxime Laurens" -sam "adm-mlaurens" -ou "it" -passwd "UwB1AHAAZQByAC0AUABhAHMAcwB3AG8AcgBkAC0ANAAtAEEAZABtAGkAbgA="
     
     Add-ADGroupMember -Identity "IT" -Members scormier,mlaurens
-    Add-ADGroupMember -Identity "Admins du domaine" -Members adm-scormier,adm-mlaurens
+    Add-ADGroupMember -Identity "Domain Admins" -Members adm-scormier,adm-mlaurens
 
     # Quelques comptes désactivés
-    New-ADUser -Name "Arnaud Trottier" -GivenName "Arnaud" -Surname "Trottier" -SamAccountName "atrottier" -Description "Désactivé le 14/06/2023" -UserPrincipalName "atrottier@nevasec.local" -Path "OU=vente,DC=nevasec,DC=local" -AccountPassword (ConvertTo-SecureString "Hello123" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Out-Null
-    New-ADUser -Name "Guillaume Brazier" -GivenName "Guillaume" -Surname "Brazier" -SamAccountName "gbrazier" -Description "Désactivé le 25/08/2023" -UserPrincipalName "gbrazier@nevasec.local" -Path "OU=consultants,DC=nevasec,DC=local" -AccountPassword (ConvertTo-SecureString "Summer2024" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Out-Null
+    New-ADUser -Name "Arnaud Trottier" -GivenName "Arnaud" -Surname "Trottier" -SamAccountName "atrottier" -Description "Désactivé le 14/06/2023" -UserPrincipalName "atrottier@$DOMAINDNS" -Path "OU=sales,$LDAPROOT" -AccountPassword (ConvertTo-SecureString "Hello123" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Out-Null
+    New-ADUser -Name "Guillaume Brazier" -GivenName "Guillaume" -Surname "Brazier" -SamAccountName "gbrazier" -Description "Désactivé le 25/08/2023" -UserPrincipalName "gbrazier@$DOMAINDNS" -Path "OU=consultants,$LDAPROOT" -AccountPassword (ConvertTo-SecureString "Summer2024" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Out-Null
 
     # Comptes de service et SPN
-    New-ADUser -Name "svc-sql" -GivenName "svc" -Surname "sql" -SamAccountName "svc-sql" -Description "Compte de service SQL" -UserPrincipalName "svc-sql@nevasec.local" -Path "OU=SVC,DC=nevasec,DC=local" -AccountPassword (ConvertTo-SecureString "sql0v3-u" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Enable-ADAccount -PassThru  | Out-Null
-    New-ADUser -Name "svc-backup" -GivenName "svc" -Surname "backup" -SamAccountName "svc-backup" -Description "Compte de service backup. Mdp: B4ckup-S3rv1c3" -UserPrincipalName "svc-backup@nevasec.local" -Path "OU=SVC,DC=nevasec,DC=local" -AccountPassword (ConvertTo-SecureString "B4ckup-S3rv1c3" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Out-Null
-    New-ADUser -Name "svc-legacy" -GivenName "svc" -Surname "legacy" -SamAccountName "svc-legacy" -Description "Compte de service pour app legacy" -UserPrincipalName "svc-legacy@nevasec.local" -Path "OU=SVC,DC=nevasec,DC=local" -AccountPassword (ConvertTo-SecureString "Killthislegacy!" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Enable-ADAccount  | Out-Null
+    New-ADUser -Name "svc-sql" -GivenName "svc" -Surname "sql" -SamAccountName "svc-sql" -Description "Compte de service SQL" -UserPrincipalName "svc-sql@$DOMAINDNS" -Path "OU=SVC,$LDAPROOT" -AccountPassword (ConvertTo-SecureString "sql0v3-u" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Enable-ADAccount -PassThru  | Out-Null
+    New-ADUser -Name "svc-backup" -GivenName "svc" -Surname "backup" -SamAccountName "svc-backup" -Description "Compte de service backup. Mdp: B4ckup-S3rv1c3" -UserPrincipalName "svc-backup@$DOMAINDNS" -Path "OU=SVC,$LDAPROOT" -AccountPassword (ConvertTo-SecureString "B4ckup-S3rv1c3" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Out-Null
+    New-ADUser -Name "svc-legacy" -GivenName "svc" -Surname "legacy" -SamAccountName "svc-legacy" -Description "Compte de service pour app legacy" -UserPrincipalName "svc-legacy@$DOMAINDNS" -Path "OU=SVC,$LDAPROOT" -AccountPassword (ConvertTo-SecureString "Killthislegacy!" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Enable-ADAccount  | Out-Null
     Add-ADGroupMember -Identity "Backup" -Members svc-backup
 
-    setspn -A DC01/svc-sql.$DOMAINDNS:`60111 $DOMAIN\svc-sql > $null
+    setspn -A $PCNAME/svc-sql.$DOMAINDNS:`60111 $DOMAIN\svc-sql > $null
     setspn -A svc-sql/$DOMAINDNS $DOMAIN\svc-sql > $null
     setspn -A DomainController/svc-sql.$DOMAINDNS:`60111 $DOMAIN\svc-sql > $null
 
@@ -154,7 +154,7 @@ function Add-Users-to-Domain {
 
     # Share
     mkdir C:\Share
-    New-SmbShare -Name "Share" -Path "C:\Share" -ChangeAccess "Utilisateurs" -FullAccess "Tout le monde" -WarningAction SilentlyContinue | Out-Null
+    New-SmbShare -Name "Share" -Path "C:\Share" -ChangeAccess "Utilisators" -FullAccess "Everyone" -WarningAction SilentlyContinue | Out-Null
 
     # For Passback attack
     Copy-Item -Path "_tools\LdapAdminPortable.zip" Destination "C:\Share\LdapAdminPortable.zip"
