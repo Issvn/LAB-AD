@@ -7,6 +7,12 @@ $roles = @{
     '3' = 'PC01'
 }
 
+# Check if running as Administrator
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Warning "⚠️ This script must be run as Administrator. Please restart PowerShell with elevated privileges."
+    exit
+}
+
 # ============================
 # Functions
 # ============================

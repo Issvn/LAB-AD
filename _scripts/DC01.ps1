@@ -73,7 +73,7 @@ function Add-ADCS {
 }
 
 function Add-Users-to-Domain {
-    # Groupes, OUs, utilisateurs
+    # Groups, UOs and Users
     New-ADGroup -name "HR" -GroupScope Global
     New-ADGroup -name "Management" -GroupScope Global
     New-ADGroup -name "Consultants" -GroupScope Global
@@ -119,7 +119,7 @@ function Add-Users-to-Domain {
     Add-User -forename "Pierre" -name "Sylvestre" -sam "psylvestre" -ou "consultants" -passwd "UABhAHMAcwB3AG8AcgBkADEAMgAzACEA"
     Add-ADGroupMember -Identity "Consultants" -Members hwalter,bdubois,dleroux,pmesny,lbeaumont,achabert,dbrassard,lfournier,hdupuy,psylvestre
 
-    # sales
+    # Sales
     Add-User -forename "Olivier" -name "Bossuet" -sam "obossuet" -ou "sales" -passwd "YgB4AEwAIQBAADIATQBlADEATQA4AHUA"
     Add-User -forename "Jessica" -name "Plantier" -sam "jplantier" -ou "sales" -passwd "TgAzAHYANABnAHIAMAB1AHAA"
     Add-User -forename "Jade" -name "Schneider" -sam "jschneider" -ou "sales" -passwd "VAB6AGoAMAA0ADQAWgBlAFYAJgBZAHUA"
@@ -127,7 +127,7 @@ function Add-Users-to-Domain {
     Add-User -forename "Cyrille" -name "Toutain" -sam "ctoutain" -ou "sales" -passwd "cQBzAGcANQA2ADQAUwBGADIALQAkAA=="
     Add-ADGroupMember -Identity "Sales" -Members obossuet,jplantier,jschneider,lportier,ctoutain
 
-    # Comptes IT et comptes IT admins du domaine
+    # IT Accoutns et IT Domain Admins Accounts
     Add-User -forename "Sylvain" -name "Cormier" -sam "scormier" -ou "it" -passwd "egBMADAAVAAxAE4AIQA0AEEAQQBZAHIA"
     Add-User -forename "Admin" -name "Sylvain Cormier" -sam "adm-scormier" -ou "it" -passwd "egBMADAAVAAxAE4AIQA0AEEAQQBZAHIA"
     Add-User -forename "Maxime" -name "Laurens" -sam "mlaurens" -ou "it" -passwd "IQAwAE4AZQB2AGEAZwByAHUAcAAwACEA"
@@ -136,11 +136,11 @@ function Add-Users-to-Domain {
     Add-ADGroupMember -Identity "IT" -Members scormier,mlaurens
     Add-ADGroupMember -Identity "Domain Admins" -Members adm-scormier,adm-mlaurens
 
-    # Quelques comptes désactivés
+    # Some deactivated accounts
     New-ADUser -Name "Arnaud Trottier" -GivenName "Arnaud" -Surname "Trottier" -SamAccountName "atrottier" -Description "Désactivé le 14/06/2023" -UserPrincipalName "atrottier@$DOMAINDNS" -Path "OU=sales,$LDAPROOT" -AccountPassword (ConvertTo-SecureString "Hello123" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Out-Null
     New-ADUser -Name "Guillaume Brazier" -GivenName "Guillaume" -Surname "Brazier" -SamAccountName "gbrazier" -Description "Désactivé le 25/08/2023" -UserPrincipalName "gbrazier@$DOMAINDNS" -Path "OU=consultants,$LDAPROOT" -AccountPassword (ConvertTo-SecureString "Summer2024" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Out-Null
 
-    # Comptes de service et SPN
+    # Service Accounts & SPN
     New-ADUser -Name "svc-sql" -GivenName "svc" -Surname "sql" -SamAccountName "svc-sql" -Description "Compte de service SQL" -UserPrincipalName "svc-sql@$DOMAINDNS" -Path "OU=SVC,$LDAPROOT" -AccountPassword (ConvertTo-SecureString "sql0v3-u" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Enable-ADAccount -PassThru  | Out-Null
     New-ADUser -Name "svc-backup" -GivenName "svc" -Surname "backup" -SamAccountName "svc-backup" -Description "Compte de service backup. Mdp: B4ckup-S3rv1c3" -UserPrincipalName "svc-backup@$DOMAINDNS" -Path "OU=SVC,$LDAPROOT" -AccountPassword (ConvertTo-SecureString "B4ckup-S3rv1c3" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Out-Null
     New-ADUser -Name "svc-legacy" -GivenName "svc" -Surname "legacy" -SamAccountName "svc-legacy" -Description "Compte de service pour app legacy" -UserPrincipalName "svc-legacy@$DOMAINDNS" -Path "OU=SVC,$LDAPROOT" -AccountPassword (ConvertTo-SecureString "Killthislegacy!" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Enable-ADAccount  | Out-Null
@@ -179,7 +179,7 @@ function Add-Users-to-Domain {
     New-SmbShare -Name "Share" -Path "C:\Share" -ChangeAccess "Utilisators" -FullAccess "Everyone" -WarningAction SilentlyContinue | Out-Null
 
     # For Passback attack
-    Copy-Item -Path "_tools\LdapAdminPortable.zip" Destination "C:\Share\LdapAdminPortable.zip"
+    Invoke-WebRequest -Uri "https://github.com/Issvn/LAB-AD/tree/main/_tools/LdapAdminPortable.zip" -OutFile "C:\Share\LdapAdminPortable.zip"
 
     # Creating and configuring Custom GPO
     Write-Host("`n  [++] Creating Custom GPO")
@@ -196,7 +196,7 @@ function Add-Users-to-Domain {
     Set-GPRegistryValue -Name "CustomGPO" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "NoAutoUpdate" -Value 1 -Type Dword | Out-Null  # Disables automatic Windows updates
     Set-GPRegistryValue -Name "CustomGPO" -Key "HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters\" -ValueName "DisabledComponents" -Value 0x20 -Type Dword  # Prefer IPv4 over IPv6
 
-    New-GPLink -Name "CustomGPO" -Target $LDAP -LinkEnabled Yes -Enforced Yes
+    New-GPLink -Name "CustomGPO" -Target $LDAPROOT -LinkEnabled Yes -Enforced Yes
     
     # GPP password
     New-Item "\\$PCNAME\sysvol\$DOMAINDNS\Policies\Groups.xml" -ItemType File -Value ([System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String("PAA/AHgAbQBsACAAdgBlAHIAcwBpAG8AbgA9ACIAMQAuADAAIgAgAGUAbgBjAG8AZABpAG4AZwA9ACIAdQB0AGYALQA4ACIAIAA/AD4ADQAKADwARwByAG8AdQBwAHMAIABjAGwAcwBpAGQAPQAiAHsAZQAxADgAYgBkADMAMABiAC0AYwA3AGIAZAAtAGMAOQA5AGYALQA3ADgAYgBiAC0AMgAwADYAYgA0ADMANABkADAAYgAwADgAfQAiAD4ADQAKAAkAPABVAHMAZQByACAAYwBsAHMAaQBkAD0AIgB7AEQARgA1AEYAMQA4ADUANQAtADUAMQBFADUALQA0AGQAMgA0AC0AOABCADEAQQAtAEQAOQBCAEQARQA5ADgAQgBBADEARAAxAH0AIgAgAG4AYQBtAGUAPQAiAEEAZABtAGkAbgBpAHMAdAByAGEAdABvAHIAIAAoAGIAdQBpAGwAdAAtAGkAbgApACIAIABpAG0AYQBnAGUAPQAiADIAIgAgAGMAaABhAG4AZwBlAGQAPQAiADIAMAAxADUALQAwADIALQAxADgAIAAwADEAOgA1ADMAOgAwADEAIgAgAHUAaQBkAD0AIgB7AEQANQBGAEUANwAzADUAMgAtADgAMQBFADEALQA0ADIAQQAyAC0AQgA3AEQAQQAtADEAMQA4ADQAMAAyAEIARQA0AEMAMwAzAH0AIgA+AA0ACgAJAAkAPABQAHIAbwBwAGUAcgB0AGkAZQBzACAAYQBjAHQAaQBvAG4APQAiAFUAIgAgAG4AZQB3AE4AYQBtAGUAPQAiACIAIABmAHUAbABsAE4AYQBtAGUAPQAiACIAIABkAGUAcwBjAHIAaQBwAHQAaQBvAG4APQAiACIAIABjAHAAYQBzAHMAdwBvAHIAZAA9ACIAUgBJADEAMwAzAEIAMgBXAGwAMgBDAGkASQAwAEMAYQB1ADEARAB0AHIAdABUAGUAMwB3AGQARgB3AHoAQwBpAFcAQgA1AFAAUwBBAHgAWABNAEQAcwB0AGMAaABKAHQAMwBiAEwAMABVAGkAZQAwAEIAYQBaAC8ANwByAGQAUQBqAHUAZwBUAG8AbgBGADMAWgBXAEEASwBhADEAaQBSAHYAZAA0AEoARwBRACIAIABjAGgAYQBuAGcAZQBMAG8AZwBvAG4APQAiADAAIgAgAG4AbwBDAGgAYQBuAGcAZQA9ACIAMAAiACAAbgBlAHYAZQByAEUAeABwAGkAcgBlAHMAPQAiADAAIgAgAGEAYwBjAHQARABpAHMAYQBiAGwAZQBkAD0AIgAwACIAIABzAHUAYgBBAHUAdABoAG8AbgB0AHkAPQAiAFIASQBEAF8AQQBEAE0ASQBOACIAIAB1AHMAZQByAE4AYQBtAGUAPQAiAGkAbgBzAHQAYQBsAGwAcABjACIALwA+AA0ACgAJADwALwBVAHMAZQByAD4ADQAKADwALwBHAHIAbwB1AHAAcwA+AA==")))

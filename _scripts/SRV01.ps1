@@ -11,7 +11,7 @@ function Invoke-LabSetup {
     if ($env:COMPUTERNAME -ne $PCNAME) { 
         Write-Host("`n [++] First run detected. Modifying network config...")
 
-        # Désactivation Windows Update
+        # Deactivate Windows Update
         Stop-Service wuauserv -Force -ErrorAction SilentlyContinue
         Set-Service wuauserv -StartupType Disabled
         Stop-Service bits -Force -ErrorAction SilentlyContinue
@@ -51,7 +51,8 @@ function Invoke-LabSetup {
             Start-Sleep 5
         }
 
-    } else { # Create credentials file
+    } else { 
+        # Create credentials file
         Write-Host ("`n [++] Final configuration...")
         
         $username = '$DOMAIN\mlaurens'
