@@ -1,8 +1,11 @@
+Import-Module "..\_modules\Nuke-Defender.psm1"
+
 #Requires -RunAsAdministrator
 
-$DOMAIN=nevasec.local
-$DOMAINDNS=nevasec
-$LDAP="DC=nevasec,DC=local"
+param($DOMAIN)
+param($DOMAINDNS)
+param($LDAPROOT)
+param($PCNAME)
 
 function Set-IPAddress {
     # Get info: adapter, IP, gateway
@@ -20,77 +23,6 @@ function Set-IPAddress {
         netsh interface ipv4 set address name="$NetAdapter" static $StaticIP 255.255.255.0 $Gateway
         Set-DnsClientServerAddress -InterfaceAlias $NetAdapter -ServerAddresses ("127.0.0.1","1.1.1.1")
     }
-}
-
-function Nuke-Defender{
-    Set-MpPreference -DisableRealtimeMonitoring $true | Out-Null
-    Set-MpPreference -DisableRemovableDriveScanning $true | Out-Null
-    Set-MpPreference -DisableArchiveScanning  $true | Out-Null
-    Set-MpPreference -DisableAutoExclusions  $true | Out-Null
-    Set-MpPreference -DisableBehaviorMonitoring  $true | Out-Null
-    Set-MpPreference -DisableBlockAtFirstSeen $true | Out-Null
-    Set-MpPreference -DisableCatchupFullScan  $true | Out-Null
-    Set-MpPreference -DisableCatchupQuickScan $true | Out-Null
-    Set-MpPreference -DisableEmailScanning $true | Out-Null
-    Set-MpPreference -DisableIntrusionPreventionSystem  $true | Out-Null
-    Set-MpPreference -DisableIOAVProtection  $true | Out-Null
-    Set-MpPreference -DisablePrivacyMode  $true | Out-Null
-    Set-MpPreference -DisableRestorePoint  $true | Out-Null
-    Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan  $true | Out-Null
-    Set-MpPreference -DisableScanningNetworkFiles  $true | Out-Null
-    Set-MpPreference -DisableScriptScanning $true | Out-Null
-
-    reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /f /v EnableLUA /t REG_DWORD /d 0 > $null
-    reg add "HKLM\System\CurrentControlSet\Services\SecurityHealthService" /v "Start" /t REG_DWORD /d "4" /f > $null  
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender" /v "DisableAntiSpyware" /t REG_DWORD /d "1" /f > $null
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender" /v "DisableAntiVirus" /t REG_DWORD /d "1" /f > $null
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender\MpEngine" /v "MpEnablePus" /t REG_DWORD /d "0" /f > $null
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableBehaviorMonitoring" /t REG_DWORD /d "1" /f > $null
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableIOAVProtection" /t REG_DWORD /d "1" /f > $null
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableOnAccessProtection" /t REG_DWORD /d "1" /f > $null
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableRealtimeMonitoring" /t REG_DWORD /d "1" /f > $null
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableScanOnRealtimeEnable" /t REG_DWORD /d "1" /f > $null
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableScriptScanning" /t REG_DWORD /d "1" /f > $null 
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender\Reporting" /v "DisableEnhancedNotifications" /t REG_DWORD /d "1" /f > $null
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender\SpyNet" /v "DisableBlockAtFirstSeen" /t REG_DWORD /d "1" /f > $null
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender\SpyNet" /v "SpynetReporting" /t REG_DWORD /d "0" /f > $null
-    reg add "HKLM\Software\Policies\Microsoft\Windows Defender\SpyNet" /v "SubmitSamplesConsent" /t REG_DWORD /d "2" /f > $null
-    reg add "HKLM\System\CurrentControlSet\Control\WMI\Autologger\DefenderApiLogger" /v "Start" /t REG_DWORD /d "0" /f > $null
-    reg add "HKLM\System\CurrentControlSet\Control\WMI\Autologger\DefenderAuditLogger" /v "Start" /t REG_DWORD /d "0" /f > $null
-
-    schtasks /Change /TN "Microsoft\Windows\ExploitGuard\ExploitGuard MDM policy Refresh" /Disable > $null
-    schtasks /Change /TN "Microsoft\Windows\Windows Defender\Windows Defender Cache Maintenance" /Disable > $null
-    schtasks /Change /TN "Microsoft\Windows\Windows Defender\Windows Defender Cleanup" /Disable > $null
-    schtasks /Change /TN "Microsoft\Windows\Windows Defender\Windows Defender Scheduled Scan" /Disable > $null
-    schtasks /Change /TN "Microsoft\Windows\Windows Defender\Windows Defender Verification" /Disable > $null
-    reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v "LocalAccountTokenFilterPolicy" /t REG_DWORD /d "1" /f > $null
-    reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /f /v sc_fdrespub /t REG_EXPAND_SZ /d "sc config fdrespub depend= RpcSs/http/fdphost/LanmanWorkstation"  # Sets FDResPub service dependency at system startup
-
-    # Désactivation Windows Update
-    Stop-Service wuauserv -Force -ErrorAction SilentlyContinue
-    Set-Service wuauserv -StartupType Disabled
-    Stop-Service bits -Force -ErrorAction SilentlyContinue
-    Set-Service bits -StartupType Disabled
-    Stop-Service dosvc -Force -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\dosvc" -Name "Start" -Value 4
-    takeown /f "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" /a /r > $null 2>&1
-    icacls "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" /grant administrators:F /t > $null 2>&1
-    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Force | Out-Null
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name NoAutoUpdate -Value 1
-  
-    # Désactivation du Firewall
-    Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled False | Out-Null
-
-    # Uninstall updates
-    Get-WindowsPackage -Online |
-        Where-Object { $_.ReleaseType -eq 'SecurityUpdate' -and $_.PackageState -eq 'Installed' } |
-        ForEach-Object {
-            try {
-                Remove-WindowsPackage -Online -PackageName $_.PackageName -ErrorAction Stop > $null 2>&1
-            } catch {
-                # Erreurs ignorées silencieusement
-            }
-        }
 }
 
 function Get-QoL{
@@ -113,18 +45,18 @@ function Add-User{
     New-ADUser -Name "$prenom $nom" -GivenName "$prenom" -Surname "$nom" -SamAccountName "$sam" -UserPrincipalName "$sam@nevasec.local" -Path "OU=$ou,DC=nevasec,DC=local" -AccountPassword (ConvertTo-SecureString $mdp -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Enable-ADAccount  | Out-Null
 }
 
-function Build-Server{
+function Add-ADDS {
     Write-host("`n  [++] Installation de Active Directory Domain Services (ADDS)")
     Install-windowsfeature -name AD-Domain-Services -IncludeManagementTools -WarningAction SilentlyContinue | Out-Null
 
     Write-host("`n  [++] Importing Module ActiveDirectory")
     Import-Module ActiveDirectory -WarningAction SilentlyContinue | Out-Null
     
-    Write-host("`n  [++] Installation du domaine nevasec.local")
-    Install-ADDSForest -SkipPreChecks -CreateDnsDelegation:$false -DatabasePath "C:\Windows\NTDS" -DomainMode "WinThreshold" -DomainName "NEVASEC.LOCAL" -DomainNetbiosName "NEVASEC" -ForestMode "WinThreshold" -InstallDns:$true -LogPath "C:\Windows\NTDS" -NoRebootOnCompletion:$false -SysvolPath "C:\Windows\SYSVOL" -Force:$true -SafeModeAdministratorPassword (Convertto-SecureString -AsPlainText "R00tR00t" -Force) -WarningAction SilentlyContinue | Out-Null
+    Write-host("`n  [++] Installation du domaine $DOMAINDNS")
+    Install-ADDSForest -SkipPreChecks -CreateDnsDelegation:$false -DatabasePath "C:\Windows\NTDS" -DomainMode "WinThreshold" -DomainName $DOMAINDNS -DomainNetbiosName $DOMAIN -ForestMode "WinThreshold" -InstallDns:$true -LogPath "C:\Windows\NTDS" -NoRebootOnCompletion:$false -SysvolPath "C:\Windows\SYSVOL" -Force:$true -SafeModeAdministratorPassword (Convertto-SecureString -AsPlainText "R00tR00t" -Force) -WarningAction SilentlyContinue | Out-Null
 }
 
-function Add-ServerContent{
+function Add-ADCS {
     Write-Host("`n  [++] Installation de AD Certificate Services")
     Add-WindowsFeature -Name AD-Certificate -IncludeManagementTools -WarningAction SilentlyContinue | Out-Null
   
@@ -138,7 +70,9 @@ function Add-ServerContent{
     Add-WindowsCapability -Online -Name Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0 -WarningAction SilentlyContinue | Out-Null
     Add-WindowsFeature RSAT-ADCS,RSAT-ADCS-mgmt -WarningAction SilentlyContinue | Out-Null
     Add-WindowsFeature -Name "RSAT-AD-PowerShell" -IncludeAllSubFeature
+}
 
+function Add-Users-to-Domain {
     # Groupes, OUs, utilisateurs
     New-ADGroup -name "RH" -GroupScope Global
     New-ADGroup -name "Management" -GroupScope Global
@@ -147,13 +81,13 @@ function Add-ServerContent{
     New-ADGroup -name "IT" -GroupScope Global
     New-ADGroup -name "Backup" -GroupScope Global
 
-    New-ADOrganizationalUnit -Name "Groupes" -Path "DC=nevasec,DC=local"
-    New-ADOrganizationalUnit -Name "RH" -Path "DC=nevasec,DC=local"
-    New-ADOrganizationalUnit -Name "Management" -Path "DC=nevasec,DC=local"
-    New-ADOrganizationalUnit -Name "Consultants" -Path "DC=nevasec,DC=local"
-    New-ADOrganizationalUnit -Name "Vente" -Path "DC=nevasec,DC=local"
-    New-ADOrganizationalUnit -Name "IT" -Path "DC=nevasec,DC=local"
-    New-ADOrganizationalUnit -Name "SVC" -Path "DC=nevasec,DC=local"
+    New-ADOrganizationalUnit -Name "Groupes" -Path $LDAPROOT
+    New-ADOrganizationalUnit -Name "RH" -Path $LDAPROOT
+    New-ADOrganizationalUnit -Name "Management" -Path $LDAPROOT
+    New-ADOrganizationalUnit -Name "Consultants" -Path $LDAPROOT
+    New-ADOrganizationalUnit -Name "Vente" -Path $LDAPROOT
+    New-ADOrganizationalUnit -Name "IT" -Path $LDAPROOT
+    New-ADOrganizationalUnit -Name "SVC" -Path $LDAPROOT
 
     foreach ($g in Get-ADGroup -Filter *){ Get-ADGroup $g | Move-ADObject -targetpath "OU=Groupes,DC=nevasec,DC=local" -ErrorAction SilentlyContinue | Out-Null }
 
@@ -209,9 +143,9 @@ function Add-ServerContent{
     New-ADUser -Name "svc-legacy" -GivenName "svc" -Surname "legacy" -SamAccountName "svc-legacy" -Description "Compte de service pour app legacy" -UserPrincipalName "svc-legacy@nevasec.local" -Path "OU=SVC,DC=nevasec,DC=local" -AccountPassword (ConvertTo-SecureString "Killthislegacy!" -AsPlainText -Force) -PasswordNeverExpires $true -PassThru | Enable-ADAccount  | Out-Null
     Add-ADGroupMember -Identity "Backup" -Members svc-backup
 
-    setspn -A DC01/svc-sql.nevasec.local:`60111 nevasec\svc-sql > $null
-    setspn -A svc-sql/nevasec.local nevasec\svc-sql > $null
-    setspn -A DomainController/svc-sql.nevasec.local:`60111 nevasec\svc-sql > $null
+    setspn -A DC01/svc-sql.$DOMAINDNS:`60111 $DOMAIN\svc-sql > $null
+    setspn -A svc-sql/$DOMAINDNS $DOMAIN\svc-sql > $null
+    setspn -A DomainController/svc-sql.$DOMAINDNS:`60111 $DOMAIN\svc-sql > $null
 
     Get-ADUser -Identity "svc-legacy" | Set-ADAccountControl -DoesNotRequirePreAuth:$true
 
@@ -220,7 +154,7 @@ function Add-ServerContent{
     New-SmbShare -Name "Share" -Path "C:\Share" -ChangeAccess "Utilisateurs" -FullAccess "Tout le monde" -WarningAction SilentlyContinue | Out-Null
 
     # For Passback attack
-    Invoke-WebRequest -Uri "https://github.com/WodenSec/ADLab/raw/main/LdapAdminPortable.zip" -OutFile "C:\Share\LdapAdminPortable.zip"
+    Copy-Item -Path "_tools\LdapAdminPortable.zip" Destination "C:\Share\LdapAdminPortable.zip"
 
     # Creating and configuring Custom GPO
     Write-Host("`n  [++] Creation of Custom GPO")
@@ -240,12 +174,12 @@ function Add-ServerContent{
     New-GPLink -Name "CustomGPO" -Target $LDAP -LinkEnabled Yes -Enforced Yes
     
     # GPP password
-    New-Item "\\DC01\sysvol\nevasec.local\Policies\Groups.xml" -ItemType File -Value ([System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String("PAA/AHgAbQBsACAAdgBlAHIAcwBpAG8AbgA9ACIAMQAuADAAIgAgAGUAbgBjAG8AZABpAG4AZwA9ACIAdQB0AGYALQA4ACIAIAA/AD4ADQAKADwARwByAG8AdQBwAHMAIABjAGwAcwBpAGQAPQAiAHsAZQAxADgAYgBkADMAMABiAC0AYwA3AGIAZAAtAGMAOQA5AGYALQA3ADgAYgBiAC0AMgAwADYAYgA0ADMANABkADAAYgAwADgAfQAiAD4ADQAKAAkAPABVAHMAZQByACAAYwBsAHMAaQBkAD0AIgB7AEQARgA1AEYAMQA4ADUANQAtADUAMQBFADUALQA0AGQAMgA0AC0AOABCADEAQQAtAEQAOQBCAEQARQA5ADgAQgBBADEARAAxAH0AIgAgAG4AYQBtAGUAPQAiAEEAZABtAGkAbgBpAHMAdAByAGEAdABvAHIAIAAoAGIAdQBpAGwAdAAtAGkAbgApACIAIABpAG0AYQBnAGUAPQAiADIAIgAgAGMAaABhAG4AZwBlAGQAPQAiADIAMAAxADUALQAwADIALQAxADgAIAAwADEAOgA1ADMAOgAwADEAIgAgAHUAaQBkAD0AIgB7AEQANQBGAEUANwAzADUAMgAtADgAMQBFADEALQA0ADIAQQAyAC0AQgA3AEQAQQAtADEAMQA4ADQAMAAyAEIARQA0AEMAMwAzAH0AIgA+AA0ACgAJAAkAPABQAHIAbwBwAGUAcgB0AGkAZQBzACAAYQBjAHQAaQBvAG4APQAiAFUAIgAgAG4AZQB3AE4AYQBtAGUAPQAiACIAIABmAHUAbABsAE4AYQBtAGUAPQAiACIAIABkAGUAcwBjAHIAaQBwAHQAaQBvAG4APQAiACIAIABjAHAAYQBzAHMAdwBvAHIAZAA9ACIAUgBJADEAMwAzAEIAMgBXAGwAMgBDAGkASQAwAEMAYQB1ADEARAB0AHIAdABUAGUAMwB3AGQARgB3AHoAQwBpAFcAQgA1AFAAUwBBAHgAWABNAEQAcwB0AGMAaABKAHQAMwBiAEwAMABVAGkAZQAwAEIAYQBaAC8ANwByAGQAUQBqAHUAZwBUAG8AbgBGADMAWgBXAEEASwBhADEAaQBSAHYAZAA0AEoARwBRACIAIABjAGgAYQBuAGcAZQBMAG8AZwBvAG4APQAiADAAIgAgAG4AbwBDAGgAYQBuAGcAZQA9ACIAMAAiACAAbgBlAHYAZQByAEUAeABwAGkAcgBlAHMAPQAiADAAIgAgAGEAYwBjAHQARABpAHMAYQBiAGwAZQBkAD0AIgAwACIAIABzAHUAYgBBAHUAdABoAG8AbgB0AHkAPQAiAFIASQBEAF8AQQBEAE0ASQBOACIAIAB1AHMAZQByAE4AYQBtAGUAPQAiAGkAbgBzAHQAYQBsAGwAcABjACIALwA+AA0ACgAJADwALwBVAHMAZQByAD4ADQAKADwALwBHAHIAbwB1AHAAcwA+AA==")))
+    New-Item "\\$PCNAME\sysvol\$DOMAINDNS\Policies\Groups.xml" -ItemType File -Value ([System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String("PAA/AHgAbQBsACAAdgBlAHIAcwBpAG8AbgA9ACIAMQAuADAAIgAgAGUAbgBjAG8AZABpAG4AZwA9ACIAdQB0AGYALQA4ACIAIAA/AD4ADQAKADwARwByAG8AdQBwAHMAIABjAGwAcwBpAGQAPQAiAHsAZQAxADgAYgBkADMAMABiAC0AYwA3AGIAZAAtAGMAOQA5AGYALQA3ADgAYgBiAC0AMgAwADYAYgA0ADMANABkADAAYgAwADgAfQAiAD4ADQAKAAkAPABVAHMAZQByACAAYwBsAHMAaQBkAD0AIgB7AEQARgA1AEYAMQA4ADUANQAtADUAMQBFADUALQA0AGQAMgA0AC0AOABCADEAQQAtAEQAOQBCAEQARQA5ADgAQgBBADEARAAxAH0AIgAgAG4AYQBtAGUAPQAiAEEAZABtAGkAbgBpAHMAdAByAGEAdABvAHIAIAAoAGIAdQBpAGwAdAAtAGkAbgApACIAIABpAG0AYQBnAGUAPQAiADIAIgAgAGMAaABhAG4AZwBlAGQAPQAiADIAMAAxADUALQAwADIALQAxADgAIAAwADEAOgA1ADMAOgAwADEAIgAgAHUAaQBkAD0AIgB7AEQANQBGAEUANwAzADUAMgAtADgAMQBFADEALQA0ADIAQQAyAC0AQgA3AEQAQQAtADEAMQA4ADQAMAAyAEIARQA0AEMAMwAzAH0AIgA+AA0ACgAJAAkAPABQAHIAbwBwAGUAcgB0AGkAZQBzACAAYQBjAHQAaQBvAG4APQAiAFUAIgAgAG4AZQB3AE4AYQBtAGUAPQAiACIAIABmAHUAbABsAE4AYQBtAGUAPQAiACIAIABkAGUAcwBjAHIAaQBwAHQAaQBvAG4APQAiACIAIABjAHAAYQBzAHMAdwBvAHIAZAA9ACIAUgBJADEAMwAzAEIAMgBXAGwAMgBDAGkASQAwAEMAYQB1ADEARAB0AHIAdABUAGUAMwB3AGQARgB3AHoAQwBpAFcAQgA1AFAAUwBBAHgAWABNAEQAcwB0AGMAaABKAHQAMwBiAEwAMABVAGkAZQAwAEIAYQBaAC8ANwByAGQAUQBqAHUAZwBUAG8AbgBGADMAWgBXAEEASwBhADEAaQBSAHYAZAA0AEoARwBRACIAIABjAGgAYQBuAGcAZQBMAG8AZwBvAG4APQAiADAAIgAgAG4AbwBDAGgAYQBuAGcAZQA9ACIAMAAiACAAbgBlAHYAZQByAEUAeABwAGkAcgBlAHMAPQAiADAAIgAgAGEAYwBjAHQARABpAHMAYQBiAGwAZQBkAD0AIgAwACIAIABzAHUAYgBBAHUAdABoAG8AbgB0AHkAPQAiAFIASQBEAF8AQQBEAE0ASQBOACIAIAB1AHMAZQByAE4AYQBtAGUAPQAiAGkAbgBzAHQAYQBsAGwAcABjACIALwA+AA0ACgAJADwALwBVAHMAZQByAD4ADQAKADwALwBHAHIAbwB1AHAAcwA+AA==")))
 }
 
 
 function Invoke-LabSetup{
-    if($env:COMPUTERNAME -ne "DC01" ){
+    if ($env:COMPUTERNAME -ne $PCNAME ) {
         Write-Host("Premiere execution detectee. Changement des parametres reseau...")
         Set-IPAddress
         Write-Host("Suppression de l'antivirus...")
@@ -254,11 +188,11 @@ function Invoke-LabSetup{
         Get-QoL
         Write-Host("Le serveur va etre renomme puis redemarrer")
         Start-Sleep -Seconds 5
-        Rename-Computer -NewName "DC01" -Restart
-    }elseif($env:USERDNSDOMAIN -ne $DOMAIN){
+        Rename-Computer -NewName $PCNAME -Restart
+    }elseif ($env:USERDNSDOMAIN -ne $DOMAIN) {
         Write-Host("Deuxieme execution detectee. Installation des roles...")
-        Build-Server
-    }elseif ($env:COMPUTERNAME -eq "DC01" -and $env:USERDNSDOMAIN -eq $DOMAIN) {
+        Add-ADDS
+    }elseif ($env:COMPUTERNAME -eq $PCNAME -and $env:USERDNSDOMAIN -eq $DOMAIN) {
         $exists = $false
         try {
             $user = Get-ADUser -Identity "svc-sql" -ErrorAction Stop
@@ -266,11 +200,11 @@ function Invoke-LabSetup{
             Write-Host("Tout est deja installe !")
         } catch {
             $exists = $false
-        }
-        if (-not $exists) {
+        } if (-not $exists) {
             # Exécution normale : contenu pas encore déployé
             Write-Host("Troisieme execution detectee. Ajout du contenu...")
-            Add-ServerContent
+            Add-ADCS
+            Add-Users-to-Domain
         }
     }
 }

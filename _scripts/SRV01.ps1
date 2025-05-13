@@ -1,11 +1,14 @@
+Import-Module "..\_modules\Nuke-Defender.psm1"
+
 #Requires -RunAsAdministrator
 
-$DOMAIN=nevasec.local
-$DOMAINDNS=nevasec
-$LDAP="DC=nevasec,DC=local"
+param($DOMAIN)
+param($DOMAINDNS)
+param($LDAPROOT)
+param($PCNAME)
 
 function Invoke-LabSetup { 
-    if ($env:COMPUTERNAME -ne "SRV01") { 
+    if ($env:COMPUTERNAME -ne $PCNAME) { 
         write-host ("`n Changement des paramètres IP et du nom et reboot...")
 
         # Désactivation Windows Update
@@ -28,19 +31,18 @@ function Invoke-LabSetup {
         Disable-NetAdapterPowerManagement -Name "$NetAdapter"
         netsh interface ipv6 set dnsservers "$NetAdapter" dhcp
 
-        Rename-Computer -NewName "SRV01" -Restart
-    } elseif ($env:COMPUTERNAME -eq "SRV01" -and $env:USERDNSDOMAIN -ne "NEVASEC.LOCAL") {
+        Rename-Computer -NewName $PCNAME -Restart
+    } elseif ($env:COMPUTERNAME -eq $PCNAME -and $env:USERDNSDOMAIN -ne $DOMAINDNS) {
         write-host ("`n Ajout au domaine et reboot...")
 
         Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled False | Out-Null
         
-        $domain = "NEVASEC"
         $password = "R00tR00t" | ConvertTo-SecureString -asPlainText -Force
-        $username = "$domain\Administrateur" 
+        $username = "$DOMAIN\Administrateur" 
         $credential = New-Object System.Management.Automation.PSCredential($username,$password)
         #Verif ping du domaine avant lancement de la connection
-        if (Test-Connection -ComputerName "NEVASEC.local" -Count 5 -Quiet) { 
-            Add-Computer -DomainName $domain -Credential $credential  | Out-Null
+        if (Test-Connection -ComputerName $DOMAINDNS -Count 5 -Quiet) { 
+            Add-Computer -DomainName $DOMAIN -Credential $credential  | Out-Null
             Start-Sleep 5
             restart-computer
         } else {
@@ -50,7 +52,7 @@ function Invoke-LabSetup {
     } else { # Create credentials file
         write-host ("`n Configuration finale...")
         
-        $username = 'NEVASEC\mlaurens'
+        $username = '$DOMAIN\mlaurens'
         $password = ConvertTo-SecureString '!0Nevagrup0!' -AsPlainText -Force
         $credential = New-Object System.Management.Automation.PSCredential -ArgumentList $username, $password
         $credential | Export-CliXml -Path "C:\secure_credentials.xml"
@@ -68,8 +70,8 @@ function Invoke-LabSetup {
         }
         Set-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "LLMNR_Trigger_Script" -Value "powershell.exe -ExecutionPolicy Bypass -NoProfile -File `"$scriptPath`"" 
         New-LocalUser -Name srvadmin -Password (ConvertTo-SecureString "Super-Password-4-Admin" -AsPlainText -Force)
-        Add-LocalGroupMember -Group $group -Member 'NEVASEC\Admins du domaine'
-        Add-LocalGroupMember -Group $group -Member 'NEVASEC\IT'
-        Add-LocalGroupMember -Group 'Administrateurs' -Member 'NEVASEC\IT'
+        Add-LocalGroupMember -Group $group -Member '$($DOMAIN)\Admins du domaine'
+        Add-LocalGroupMember -Group $group -Member '$($DOMAINDNS)\IT'
+        Add-LocalGroupMember -Group 'Administrateurs' -Member '$($DOMAINDNS)\IT'
     }     
 } 
