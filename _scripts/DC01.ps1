@@ -152,6 +152,28 @@ function Add-Users-to-Domain {
 
     Get-ADUser -Identity "svc-legacy" | Set-ADAccountControl -DoesNotRequirePreAuth:$true
 
+    # Add replication permissions for the Backup group
+    $domainDN = (Get-ADDomain).DistinguishedName
+    $group = "$DOMAIN\Backup"
+    dsacls "AD:$domainDN" /G "$group:CA;Replicating Directory Changes"
+    dsacls "AD:$domainDN" /G "$group:CA;Replicating Directory Changes All"
+    dsacls "AD:$domainDN" /G "$group:CA;Replicating Directory Changes In Filtered Set"
+    
+    # Create et publish VPNCert certificate template
+    try {
+        $templates = New-Object -ComObject CertificateAuthority.PolicyTemplates
+        $template = $templates.Item("User")
+        $newTemplate = $template.Duplicate()
+        $newTemplate.DisplayName = "VPNCert"
+        $newTemplate.Name = "VPNCert"
+        $newTemplate.SubjectNameFlags = 0x00000001  # Provide in Request
+        $newTemplate.Commit()
+        Write-Host "VPNCert Template succesfully created."
+        certutil -setcatemplates +VPNCert
+    } catch {
+        Write-Warning "Error while creating VPNCert template : $_"
+    }
+
     # Share
     mkdir C:\Share
     New-SmbShare -Name "Share" -Path "C:\Share" -ChangeAccess "Utilisators" -FullAccess "Everyone" -WarningAction SilentlyContinue | Out-Null
@@ -182,18 +204,18 @@ function Add-Users-to-Domain {
 
 function Invoke-LabSetup{
     if ($env:COMPUTERNAME -ne $PCNAME ) {
-        Write-Host("`n  [++] First run detected. Modifying network config...")
+        Write-Host("`n [++] First run detected. Modifying network config...")
         Set-IPAddress
-        Write-Host("`n  [++] Removing MS Defender...")
+        Write-Host("`n [++] Removing MS Defender...")
         Nuke-Defender
-        Write-Host("`n  [++] Modifying QoL")
+        Write-Host("`n [++] Modifying QoL")
         Get-QoL
-        Write-Host("`n  [--] The server will be renamed and restarted")
+        Write-Host("`n [--] The server will be renamed and restarted")
         Start-Sleep -Seconds 5
         Rename-Computer -NewName $PCNAME -Restart
 
     } elseif ($env:USERDNSDOMAIN -ne $DOMAIN) {
-        Write-Host("`n  [++] Second run detected, Installing roles...")
+        Write-Host("`n [++] Second run detected, Installing roles...")
         Add-ADDS
 
     } elseif ($env:COMPUTERNAME -eq $PCNAME -and $env:USERDNSDOMAIN -eq $DOMAIN) {
@@ -205,7 +227,7 @@ function Invoke-LabSetup{
         } catch {
             $exists = $false
         } if (-not $exists) {
-            Write-Host("`n  [++] Third run detected. Adding AD CS and Users...")
+            Write-Host("`n [++] Third run detected. Adding AD CS and Users...")
             Add-ADCS
             Add-Users-to-Domain
         }

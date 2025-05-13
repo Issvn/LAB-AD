@@ -56,24 +56,6 @@ $c = @{ '1' = 'DC01'; '2' = 'SRV01'; '3' = 'PC01' }; $s = Read-Host "Machine à 
 
 Une fois que le script a été executé trois fois, il faut faire quelques configurations.
 
-##### Ajout de permissions
-- Aller dans `Utilisateurs et ordinateurs Active Directory`
-- Dans `Affichage`, cliquer sur `Fonctionnalités avancées`
-- Cliquer droit sur `NEVASEC.local` dans l'arborescence et cliquer `Propriétés`
-- Dans l'onglet `Sécurité`, `Ajouter...` ajouter le groupe `Backup`
-- Sélectionner le groupe `Backup` et Autoriser les permissions `Réplication de toutes les modifications de l'annuaire`, `Réplication des changements de répertoire` et `Réplication des changements de répertoires dans un ensemble filtré`
-
-##### Ajout d'un template de certificat
-- Cliquer sur Démarrer et chercher "cert" puis cliquer sur `Autorité de certification`
-- Dérouler la liste sous `NEVASEC-DC01-CA` puis faire clic-droit sur `Modèles de certificats` et cliquer sur `Gérer`
-- Clic-droit sur le modèle `Utilisateur` puis `Dupliquer le modèle`
-- Dans l'onglet `Général` donner le nom `VPNCert` au modèle
-- Dans l'onglet `Nom du sujet` cliquer sur `Fournir dans la demande`
-- Cliquer sur `Appliquer` puis `OK`
-- Fermer la fenêtre "Console des modèles de certificat"
-- Sur la fenête "certsrv" restante faire clic-droit sur `Modèles de certificats` > `Nouveau` > `Modèle de certificat à délivrer`
-- Dans la liste choisir `VPNCert` puis `OK`
-
 ### Setup de SRV01
 - Une fois le DC configuré, installer Windows sur SRV01.
 - Pour le compte `Administrateur` choisir le mot de passe `Sysadmin123!`.
