@@ -50,12 +50,6 @@ $c = @{ '1' = 'DC01'; '2' = 'SRV01'; '3' = 'PC01' }; $s = Read-Host "Machine à 
 8. Répéter les étapes 5 & 6
 9. Le serveur va de nouveau redémarrer. Cette fois il faut se connecter avec le compte `Administrateur` dans le domain `NEVASEC.LOCAL` et relancer le script une dernière fois en suivant les étapes 5 & 6.
 
-
-
-#### Configuration manuelle sur le DC
-
-Une fois que le script a été executé trois fois, il faut faire quelques configurations.
-
 ### Setup de SRV01
 - Une fois le DC configuré, installer Windows sur SRV01.
 - Pour le compte `Administrateur` choisir le mot de passe `Sysadmin123!`.
@@ -107,5 +101,5 @@ $c = @{ '1' = 'DC01'; '2' = 'SRV01'; '3' = 'PC01' }; $s = Read-Host "Machine à 
 
 
 ## Notes
-
-Merci à [Dewalt](https://github.com/Dewalt-arch) pour son script [pimpmyadlab](https://github.com/Dewalt-arch/pimpmyadlab/tree/main). 
+Merci à [Dewalt](https://github.com/Dewalt-arch) pour son script [pimpmyadlab](https://github.com/Dewalt-arch/pimpmyadlab/tree/main).
+Merci à [WoodenSec](https://github.com/WodenSec) pour le script initial [ADLab](https://github.com/WodenSec/ADLab).
