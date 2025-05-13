@@ -6,20 +6,37 @@ param($DOMAIN)
 param($DOMAINDNS)
 param($LDAPROOT)
 param($PCNAME)
+param($SUBNET)
+
+function Set-IPAddress {
+    param (
+        [int]$SUBNET  # Exemple : 10 pour 192.168.10.250
+    )
+    # Get info: adapter, IP, gateway
+    $NetAdapter = Get-CimInstance -Class Win32_NetworkAdapter -Property NetConnectionID,NetConnectionStatus | Where-Object { $_.NetConnectionStatus -eq 2 } | Select-Object -ExpandProperty NetConnectionID
+    $IPAddress = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $NetAdapter | Select-Object -ExpandProperty IPAddress
+
+    # Vérifie si l'adresse IP actuelle est une adresse APIPA
+    $IPByte = $IPAddress.Split(".")
+    if ($IPByte[0] -eq "169" -and $IPByte[1] -eq "254") {
+        Write-Host "`n [ ERROR ] - $IPAddress is a Link-Local address, Please check the VM network settings. `n`n"
+        exit
+    } else {
+        # Construit l'adresse IP statique à partir du sous-réseau fourni
+        $DNS = "192.168.$SUBNET.250"
+        $StaticIP = "192.168.$SUBNET.10"
+
+        netsh interface ipv4 set address name="$NetAdapter" static $StaticIP 255.255.255.0
+        Set-DnsClientServerAddress -InterfaceAlias $NetAdapter -ServerAddresses ($DNS, "1.1.1.1")
+    }
+}
 
 function Invoke-LabSetup { 
     if ($env:COMPUTERNAME -ne $PCNAME) { 
         Write-Host("`n [++] First run detected. Modifying network config...")
 
         Nuke-Defender
-        $NetAdapter=Get-CimInstance -Class Win32_NetworkAdapter -Property NetConnectionID,NetConnectionStatus | Where-Object { $_.NetConnectionStatus -eq 2 } | Select-Object -Property NetConnectionID -ExpandProperty NetConnectionID
-        $IPAddress=Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $NetAdapter | Select-Object -ExpandProperty IPAddress
-        $IPByte = $IPAddress.Split(".")
-        $DNS = ($IPByte[0]+"."+$IPByte[1]+"."+$IPByte[2]+".250")
-        Set-DnsClientServerAddress -InterfaceAlias $NetAdapter -ServerAddresses ("$DNS","1.1.1.1")
-        Disable-NetAdapterPowerManagement -Name "$NetAdapter"
-        netsh interface ipv6 set dnsservers "$NetAdapter" dhcp
-
+        Set-IPAddress -SUBNET $SUBNET
         Rename-Computer -NewName $PCNAME -Restart
 
     } elseif ($env:COMPUTERNAME -eq $PCNAME -and $env:USERDNSDOMAIN -ne $DOMAINDNS) {

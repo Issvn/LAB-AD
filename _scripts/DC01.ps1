@@ -6,22 +6,29 @@ param($DOMAIN)
 param($DOMAINDNS)
 param($LDAPROOT)
 param($PCNAME)
+param($SUBNET)
 
 function Set-IPAddress {
+    param (
+        [int]$SUBNET  # Example : 10 for 192.168.10.250
+    )
     # Get info: adapter, IP, gateway
-    $NetAdapter=Get-CimInstance -Class Win32_NetworkAdapter -Property NetConnectionID,NetConnectionStatus | Where-Object { $_.NetConnectionStatus -eq 2 } | Select-Object -Property NetConnectionID -ExpandProperty NetConnectionID
-    $IPAddress=Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $NetAdapter | Select-Object -ExpandProperty IPAddress
-    $Gateway=((Get-NetIPConfiguration -InterfaceAlias $NetAdapter).IPv4DefaultGateway).NextHop
-    $IPByte = $IPAddress.Split(".")
+    $NetAdapter = Get-CimInstance -Class Win32_NetworkAdapter -Property NetConnectionID,NetConnectionStatus | Where-Object { $_.NetConnectionStatus -eq 2 } | Select-Object -ExpandProperty NetConnectionID
+    $IPAddress = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $NetAdapter | Select-Object -ExpandProperty IPAddress
+    $Gateway = ((Get-NetIPConfiguration -InterfaceAlias $NetAdapter).IPv4DefaultGateway).NextHop
 
-    # Check IP and set static
-    if ($IPByte[0] -eq "169" -And $IPByte[1] -eq "254") {
-        Write-Host("`n [ ERROR ] - $IPaddress is a Link-Local address, Please check the VM network settings. `n`n")
+    # Vérifie si l'adresse IP actuelle est une adresse APIPA
+    $IPByte = $IPAddress.Split(".")
+    if ($IPByte[0] -eq "169" -and $IPByte[1] -eq "254") {
+        Write-Host "`n [ ERROR ] - $IPAddress is a Link-Local address, Please check the VM network settings. `n`n"
         exit
     } else {
-        $StaticIP = ($IPByte[0]+"."+$IPByte[1]+"."+$IPByte[2]+".250")
-        netsh interface ipv4 set address name="$NetAdapter" static $StaticIP 255.255.255.0 $Gateway
-        Set-DnsClientServerAddress -InterfaceAlias $NetAdapter -ServerAddresses ("127.0.0.1","1.1.1.1")
+        # Construit l'adresse IP statique à partir du sous-réseau fourni
+        $StaticIP = "192.168.$SUBNET.250"
+        $StaticGateway = "192.168.$SUBNET.1"
+
+        netsh interface ipv4 set address name="$NetAdapter" static $StaticIP 255.255.255.0 $StaticGateway
+        Set-DnsClientServerAddress -InterfaceAlias $NetAdapter -ServerAddresses ("127.0.0.1", "1.1.1.1")
     }
 }
 
@@ -205,7 +212,7 @@ function Add-Users-to-Domain {
 function Invoke-LabSetup{
     if ($env:COMPUTERNAME -ne $PCNAME ) {
         Write-Host("`n [++] First run detected. Modifying network config...")
-        Set-IPAddress
+        Set-IPAddress -SUBNET $SUBNET
         Write-Host("`n [++] Removing MS Defender...")
         Nuke-Defender
         Write-Host("`n [++] Modifying QoL")

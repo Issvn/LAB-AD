@@ -37,7 +37,8 @@ function Invoke-CloudSetup {
         [string]$Role,
         [string]$Domain,
         [string]$DomainDns,
-        [string]$LdapRoot
+        [string]$LdapRoot,
+        [string]$Subnet
     )
     $scriptUrl = "https://raw.githubusercontent.com/Issvn/LAB-AD/main/_scripts/$Role.ps1"
     $tempScript = "$env:TEMP\$Role.ps1"
@@ -46,7 +47,7 @@ function Invoke-CloudSetup {
         Write-Host "`nDownloading script from GitHub..."
         Invoke-WebRequest -Uri $scriptUrl -OutFile $tempScript -ErrorAction Stop
         Write-Host "Running script..."
-        & $tempScript -PCNAME $Role -DOMAIN $Domain -DOMAINDNS $DomainDns -LDAPROOT $LdapRoot
+        & $tempScript -PCNAME $Role -DOMAIN $Domain -DOMAINDNS $DomainDns -LDAPROOT $LdapRoot -SUBNET $Subnet
         Invoke-LabSetup
     } catch {
         Write-Error "Error during script download or execution: $_"
@@ -58,12 +59,13 @@ function Invoke-LocalSetup {
         [string]$Role,
         [string]$Domain,
         [string]$DomainDns,
-        [string]$LdapRoot
+        [string]$LdapRoot,
+        [string]$Subnet
     )
     $localScript = "_scripts/$Role.ps1"
     if (Test-Path $localScript) {
         Write-Host "`nRunning local script..."
-        & $localScript -PCNAME $Role -DOMAIN $Domain -DOMAINDNS $DomainDns -LDAPROOT $LdapRoot
+        & $localScript -PCNAME $Role -DOMAIN $Domain -DOMAINDNS $DomainDns -LDAPROOT $LdapRoot -SUBNET $Subnet
         Invoke-LabSetup
     } else {
         Write-Error "Local script '$localScript' not found."
@@ -75,6 +77,7 @@ function Invoke-LocalSetup {
 # ============================
 $a = (Read-Host "Execution type:`n 1. Cloud (from GitHub)`n 2. Local (requires local repo)").Trim().ToLower()
 $s = (Read-Host "`nSelect role to install:`n 1. Domain Controller (DC01)`n 2. Server (SRV01)`n 3. Client (PC01)`nEnter your choice").Trim()
+$subnet = (Read-Host "`nEnter the subnet you are using :").Trim()
 
 if ($roles.ContainsKey($s)) {
     $selectedRole = $roles[$s]
@@ -92,10 +95,10 @@ if ($roles.ContainsKey($s)) {
     }
 
     switch ($a) {
-        '1' { Invoke-CloudSetup -Role $selectedRole -Domain $domain -DomainDns $domainDns -LdapRoot $ldapRoot }
-        'cloud' { Invoke-CloudSetup -Role $selectedRole -Domain $domain -DomainDns $domainDns -LdapRoot $ldapRoot }
-        '2' { Invoke-LocalSetup -Role $selectedRole -Domain $domain -DomainDns $domainDns -LdapRoot $ldapRoot }
-        'local' { Invoke-LocalSetup -Role $selectedRole -Domain $domain -DomainDns $domainDns -LdapRoot $ldapRoot }
+        '1' { Invoke-CloudSetup -Role $selectedRole -Domain $domain -DomainDns $domainDns -LdapRoot $ldapRoot -Subnet $subnet}
+        'cloud' { Invoke-CloudSetup -Role $selectedRole -Domain $domain -DomainDns $domainDns -LdapRoot $ldapRoot -Subnet $subnet}
+        '2' { Invoke-LocalSetup -Role $selectedRole -Domain $domain -DomainDns $domainDns -LdapRoot $ldapRoot -Subnet $subnet}
+        'local' { Invoke-LocalSetup -Role $selectedRole -Domain $domain -DomainDns $domainDns -LdapRoot $ldapRoot -Subnet $subnet}
         default { Write-Host "`nInvalid execution type." }
     }
 } else {
