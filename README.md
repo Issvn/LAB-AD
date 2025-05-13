@@ -101,5 +101,5 @@ $c = @{ '1' = 'DC01'; '2' = 'SRV01'; '3' = 'PC01' }; $s = Read-Host "Machine à 
 
 
 ## Notes
-Merci à [Dewalt](https://github.com/Dewalt-arch) pour son script [pimpmyadlab](https://github.com/Dewalt-arch/pimpmyadlab/tree/main).
+Merci à [Dewalt](https://github.com/Dewalt-arch) pour son script [pimpmyadlab](https://github.com/Dewalt-arch/pimpmyadlab/tree/main).  
 Merci à [WoodenSec](https://github.com/WodenSec) pour le script initial [ADLab](https://github.com/WodenSec/ADLab).
